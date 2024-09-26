@@ -27,7 +27,8 @@ public static class WebApplicationBuilderExtensions
     {
         builder.ThrowIfNull();
         builder.ConfigureExtended<UserDatabaseOptions>()
-               .Services.AddScoped<AuthenticatedFilter>()
+               .Services.AddScoped<AuthenticationMiddleware>()
+                        .AddScoped<AuthenticatedFilter>()
                         .AddScoped<IUserService, UserService>()
                         .AddScoped<IUserDatabase, SQLiteUserDatabase>();
 

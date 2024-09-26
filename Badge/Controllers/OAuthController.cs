@@ -1,5 +1,6 @@
 ﻿using Badge.Controllers.Models;
 using Badge.Filters;
+using Badge.Models;
 using Badge.Services.OAuth2;
 using Badge.Services.OAuth2.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -32,10 +33,11 @@ public sealed class OAuthController
 
     [GeneratePost(Pattern = "authorize")]
     [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
-    public async Task<IResult> Authorize([FromBody] AuthorizeRequest request, CancellationToken cancellationToken)
+    public async Task<IResult> Authorize(AuthenticatedUser authenticatedUser, [FromBody] AuthorizeRequest request, CancellationToken cancellationToken)
     {
         var result = await this.oAuth2Service.ValidateOAuth2Request(new OAuthRequest
         {
+            Username = authenticatedUser.User.Username,
             ClientId = request.ClientId,
             ClientSecret = request.ClientSecret,
             State = request.State,

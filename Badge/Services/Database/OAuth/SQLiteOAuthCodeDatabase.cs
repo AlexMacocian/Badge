@@ -13,6 +13,9 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
     private const string CodeKey = "code";
     private const string NotBeforeKey = "notbefore";
     private const string NotAfterKey = "notafter";
+    private const string UsernameKey = "username";
+    private const string ScopeKey = "scope";
+    private const string RedirectUriKey = "redirect";
 
     private readonly OAuthCodeDatabaseOptions options;
     private readonly ILogger<SQLiteOAuthCodeDatabase> logger;
@@ -20,7 +23,10 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
     protected override string TableDefinition => $@"
 {CodeKey} TEXT PRIMARY KEY NOT NULL UNIQUE,
 {NotBeforeKey} TEXT NOT NULL,
-{NotAfterKey} TEXT NOT NULL";
+{NotAfterKey} TEXT NOT NULL,
+{UsernameKey} TEXT NOT NULL,
+{ScopeKey} TEXT NOT NULL,
+{RedirectUriKey} TEXT NOT NULL";
 
     public SQLiteOAuthCodeDatabase(
         IOptions<OAuthCodeDatabaseOptions> options,
@@ -76,11 +82,14 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
 
     private async Task<bool> CreateOAuthCodeInternal(OAuthCode code, CancellationToken cancellationToken)
     {
-        var query = $"INSERT INTO {options.TableName}({CodeKey}, {NotBeforeKey}, {NotAfterKey}) Values (@code, @notBefore, @notAfter)";
+        var query = $"INSERT INTO {options.TableName}({CodeKey}, {NotBeforeKey}, {NotAfterKey}, {UsernameKey}, {ScopeKey}, {RedirectUriKey}) Values (@code, @notBefore, @notAfter, @username, @scope, @redirect)";
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@code", code.Code);
         command.Parameters.AddWithValue("@notBefore", code.NotBefore.ToString(DateTimeFormat));
         command.Parameters.AddWithValue("@notAfter", code.NotAfter.ToString(DateTimeFormat));
+        command.Parameters.AddWithValue("@username", code.Username);
+        command.Parameters.AddWithValue("@scope", code.Scope);
+        command.Parameters.AddWithValue("@redirect", code.Redirect);
 
         var result = await command.ExecuteNonQuery(cancellationToken);
         return result == 1;
@@ -97,7 +106,10 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
             var oauthCode = reader.GetString(0);
             var notBefore = reader.GetDateTime(1);
             var notAfter = reader.GetDateTime(2);
-            return new OAuthCode(oauthCode, notBefore, notAfter);
+            var username = reader.GetString(3);
+            var scope = reader.GetString(4);
+            var redirect = reader.GetString(5);
+            return new OAuthCode(oauthCode, notBefore, notAfter, username, scope, redirect);
         }
 
         return default;

@@ -4,6 +4,7 @@ using Badge.Options;
 using Badge.Services.Certificates;
 using Badge.Services.Database.OAuth;
 using Badge.Services.OAuth2.Models;
+using Badge.Services.Users;
 using Microsoft.Extensions.Options;
 using System.Cache;
 using System.Core.Extensions;
@@ -20,17 +21,20 @@ public sealed class OAuth2Service : IOAuth2Service
     private static AsyncValueCache<JsonWebKeySetResponse>? JsonWebKeySets;
 
     private readonly OAuthServiceOptions options;
+    private readonly IUserService userService;
     private readonly IOAuthCodeDatabase oAuthCodeDatabase;
     private readonly ICertificateService certificateService;
     private readonly ILogger<OAuth2Service> logger;
 
     public OAuth2Service(
         IOptions<OAuthServiceOptions> options,
+        IUserService userService,
         IOAuthCodeDatabase oAuthCodeDatabase,
         ICertificateService certificateService,
         ILogger<OAuth2Service> logger)
     {
         this.options = options.ThrowIfNull().Value;
+        this.userService = userService.ThrowIfNull();
         this.oAuthCodeDatabase = oAuthCodeDatabase.ThrowIfNull();
         this.certificateService = certificateService.ThrowIfNull();
         this.logger = logger.ThrowIfNull();
@@ -60,6 +64,11 @@ public sealed class OAuth2Service : IOAuth2Service
 
     public async Task<OAuthValidationResponse> ValidateOAuth2Request(OAuthRequest oAuthRequest, CancellationToken cancellationToken)
     {
+        if (oAuthRequest.Username is not string username)
+        {
+            return new OAuthValidationResponse.Failure { ErrorCode = 401, ErrorMessage = "User needs to be authenticated to perform the OAuth flow" };
+        }
+
         if (oAuthRequest.ClientSecret is not string clientSecret)
         {
             return new OAuthValidationResponse.Failure { ErrorCode = 400, ErrorMessage = "Missing client secret" };
@@ -90,10 +99,16 @@ public sealed class OAuth2Service : IOAuth2Service
             return new OAuthValidationResponse.Failure { ErrorCode = 400, ErrorMessage = "Invalid redirect uri" };
         }
 
+        var user = await this.userService.GetUserByUsername(username, cancellationToken);
+        if (user is null)
+        {
+            return new OAuthValidationResponse.Failure { ErrorCode = 500, ErrorMessage = "Could not find authenticated user" };
+        }
+
         var code = Guid.NewGuid().ToString().Replace("-", "");
         var notBefore = DateTime.Now;
         var notAfter = notBefore + this.options.AuthCodeDuration;
-        var oauthCode = new OAuthCode(code, notBefore, notAfter);
+        var oauthCode = new OAuthCode(code, notBefore, notAfter, username, scopes, redirectUri);
         if (!await this.oAuthCodeDatabase.CreateOAuthCode(oauthCode, cancellationToken))
         {
             return new OAuthValidationResponse.Failure { ErrorCode = 500, ErrorMessage = "Failed to create oauth code" };

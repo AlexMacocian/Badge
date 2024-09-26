@@ -37,6 +37,7 @@ namespace Badge
             var app = builder.Build()
                 .RedirectEmptyPathToIndex()
                 .UseWwwRoot()
+                .UseUserAuthentication()
                 .UseCorrelationVector()
                 .UseIPExtraction()
                 .UseLoggingEnrichment()

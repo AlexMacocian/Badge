@@ -2,6 +2,7 @@
 
 public sealed class OAuthRequest
 {
+    public string? Username { get; set; }
     public string? ClientSecret { get; set; }
     public string? ClientId { get; set; }
     public string? Scopes { get; set; }

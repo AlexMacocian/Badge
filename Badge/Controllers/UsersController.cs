@@ -54,14 +54,12 @@ public sealed class UsersController
 
     [GenerateGet(Pattern = "me")]
     [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
-    public async Task<IResult> Me(HttpContext httpContext)
+    public Task<IResult> Me(AuthenticatedUser authenticatedUser)
     {
-        var username = httpContext.GetUsername();
-        var user = await this.userService.GetUserByUsername(username, httpContext.RequestAborted);
-        return user switch
+        return authenticatedUser.User switch
         {
-            User userModel => Results.Json(new UserDetails { Username = userModel.Username }, SerializationContext.Default),
-            _ => Results.NotFound("Could not find user")
+            User userModel => Task.FromResult(Results.Json(new UserDetails { Username = userModel.Username }, SerializationContext.Default)),
+            _ => Task.FromResult(Results.NotFound("Could not find user"))
         };
     }
 }

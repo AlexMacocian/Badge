@@ -1,22 +1,24 @@
-﻿namespace Badge.Extensions;
+﻿using System.IdentityModel.Tokens.Jwt;
+
+namespace Badge.Extensions;
 
 public static class HttpContextExtensions
 {
-    private const string UsernameKey = "Username";
+    private const string JwtKey = "JwtToken";
 
-    public static string? GetUsername(this HttpContext context)
+    public static void SetSecurityToken(this HttpContext context, JwtSecurityToken jwtSecurityToken)
     {
-        if (context.Items.TryGetValue(UsernameKey, out var username) &&
-            username is string usernameStr)
+        context.Items.Add(JwtKey, jwtSecurityToken);
+    }
+
+    public static JwtSecurityToken? GetSecurityToken(this HttpContext context)
+    {
+        if (context.Items.TryGetValue(JwtKey, out var securityKey) &&
+            securityKey is JwtSecurityToken jwtSecurityToken)
         {
-            return usernameStr;
+            return jwtSecurityToken;
         }
 
         return default;
-    }
-
-    public static void SetUsername(this HttpContext context, string username)
-    {
-        context.Items.Add(UsernameKey, username);
     }
 }

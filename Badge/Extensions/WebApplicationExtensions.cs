@@ -37,6 +37,12 @@ public static class WebApplicationExtensions
         return webApplication;
     }
 
+    public static WebApplication UseUserAuthentication(this WebApplication webApplication)
+    {
+        webApplication.ThrowIfNull().UseMiddleware<AuthenticationMiddleware>();
+        return webApplication;
+    }
+
     public static WebApplication UseLoggingEnrichment(this WebApplication webApplication)
     {
         webApplication.ThrowIfNull().UseMiddleware<LoggingEnrichmentMiddleware>();
