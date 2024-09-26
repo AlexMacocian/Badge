@@ -1,0 +1,23 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script type="module" src="/src/register.js"></script>
+    <title>Register Page</title>
+</head>
+<body>
+    <h1>Register</h1>
+    <form id="registerForm">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required=required />
+
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required=required />
+
+        <button type="submit">Login</button>
+    </form>
+    <a href="login.html">Login</a>
+    <div id="errorMessage" style="color: red; display: none;"></div>
+</body>
+</html>

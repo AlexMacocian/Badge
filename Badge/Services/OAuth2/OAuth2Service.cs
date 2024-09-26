@@ -85,7 +85,7 @@ public sealed class OAuth2Service : IOAuth2Service
             return new OAuthValidationResponse.Failure { ErrorCode = 400, ErrorMessage = "Missing state" };
         }
 
-        if (Uri.TryCreate(redirectUri, UriKind.Absolute, out _))
+        if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out _))
         {
             return new OAuthValidationResponse.Failure { ErrorCode = 400, ErrorMessage = "Invalid redirect uri" };
         }

@@ -68,6 +68,34 @@
     }
 
     /**
+     * Register account in Badge
+     * @param {any} username
+     * @param {any} password
+     * @returns An success result { sucess:true, token:string } or a failure { success:false, message:string }
+     */
+    async function register(username, password) {
+        try {
+            const response = await fetch("/api/users/create", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ username: username, password: password })
+            });
+
+            if (response.ok) {
+                const { token } = await response.text();
+                return { success: true, token };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.message || "Registration failed" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
      * Get authorization code for OAuth flow
      * @param {string} clientId
      * @param {string} clientSecret
@@ -110,6 +138,7 @@
 
     return {
         login,
+        register,
         isAuthenticated,
         logout,
         getUserDetails,
