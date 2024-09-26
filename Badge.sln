@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34714.143
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Badge", "Badge\Badge.csproj", "{6B0C569D-8805-410B-BA7E-38B5C7A09731}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CertificateUtil", "CertificateUtil\CertificateUtil.csproj", "{519AD1C6-A15A-4A8A-ADC1-EB9285F089C8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6B0C569D-8805-410B-BA7E-38B5C7A09731}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6B0C569D-8805-410B-BA7E-38B5C7A09731}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6B0C569D-8805-410B-BA7E-38B5C7A09731}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6B0C569D-8805-410B-BA7E-38B5C7A09731}.Release|Any CPU.Build.0 = Release|Any CPU
+		{519AD1C6-A15A-4A8A-ADC1-EB9285F089C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{519AD1C6-A15A-4A8A-ADC1-EB9285F089C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{519AD1C6-A15A-4A8A-ADC1-EB9285F089C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{519AD1C6-A15A-4A8A-ADC1-EB9285F089C8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {92F4F147-45F9-4ECA-92C2-93AB7C44D833}
+	EndGlobalSection
+EndGlobal
