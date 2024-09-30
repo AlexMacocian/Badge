@@ -21,6 +21,7 @@ namespace Badge
                 .WithSerializationContext()
                 .WithSQLiteDatabase()
                 .WithUserServices()
+                .WithApplicationServices()
                 .WithHttpContextAccessor()
                 .WithFormattedLogging()
                 .WithCorrelationVector()

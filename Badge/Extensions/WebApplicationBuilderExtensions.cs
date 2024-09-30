@@ -1,7 +1,9 @@
 ﻿using Badge.Filters;
 using Badge.Middleware;
 using Badge.Options;
+using Badge.Services.Applications;
 using Badge.Services.Certificates;
+using Badge.Services.Database.Applications;
 using Badge.Services.Database.Certificates;
 using Badge.Services.Database.OAuth;
 using Badge.Services.Database.Users;
@@ -23,6 +25,20 @@ namespace Badge.Extensions;
 
 public static class WebApplicationBuilderExtensions
 {
+    public static WebApplicationBuilder WithApplicationServices(this WebApplicationBuilder builder)
+    {
+        builder.ThrowIfNull();
+        builder.ConfigureExtended<ApplicationOptions>()
+            .Services
+                .Configure<ApplicationDatabaseOptions>(builder.Configuration.GetRequiredSection($"Applications:ApplicationDatabase"))
+                .Configure<ApplicationMembershipDatabaseOptions>(builder.Configuration.GetRequiredSection($"Applications:MembershipDatabase"))
+                .AddScoped<IApplicationDatabase, SQLiteApplicationDatabase>()
+                .AddScoped<IApplicationMembershipDatabase, SQLiteApplicationMembershipDatabase>()
+                .AddScoped<IApplicationService, ApplicationService>();
+
+        return builder;
+    }
+
     public static WebApplicationBuilder WithUserServices(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull();

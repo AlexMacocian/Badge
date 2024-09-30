@@ -10,8 +10,6 @@ namespace Badge.Services.Database.Certificates;
 
 public sealed class SQLiteCertificateDatabase : SqliteTableBase<CertificateDatabaseOptions>, ICertificateDatabase
 {
-    private const string DateTimeFormat = "YYYY-MM-DD HH:MM:SS.SSS";
-
     private const string UseSigning = "signing";
 
     private const string IdKey = "id";

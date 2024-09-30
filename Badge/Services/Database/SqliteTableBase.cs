@@ -9,6 +9,8 @@ namespace Badge.Services.Database;
 public abstract class SqliteTableBase<TOptions> : IDisposable
     where TOptions : class, IDatabaseOptions, new()
 {
+    public const string DateTimeFormat = "yyyy-MM-dd HH:mm:ss.fff";
+
     private static readonly SemaphoreSlim Semaphore = new(1);
     private static bool TableInitialized;
 

@@ -68,7 +68,6 @@ public sealed class JWTService : IJWTService
 
         var claims = new[]
         {
-            // TODO: Add user here
             new Claim(JwtRegisteredClaimNames.Sub, subjectId),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)

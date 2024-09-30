@@ -9,7 +9,6 @@ namespace Badge.Services.Database.OAuth;
 
 public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseOptions>, IOAuthCodeDatabase
 {
-    private const string DateTimeFormat = "YYYY-MM-DD HH:MM:SS.SSS";
     private const string CodeKey = "code";
     private const string NotBeforeKey = "notbefore";
     private const string NotAfterKey = "notafter";
