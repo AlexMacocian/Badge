@@ -1,13 +1,10 @@
-﻿using System.Text.Json.Serialization;
+﻿using Badge.Models.Identity;
 
 namespace Badge.Models;
 
-public sealed class User(string id, string username, string password)
+public sealed class User(UserIdentifier id, string username, string password)
 {
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = id;
-    [JsonPropertyName("username")]
+    public UserIdentifier Id { get; set; } = id;
     public string Username { get; set; } = username;
-    [JsonPropertyName("password")]
     public string Password { get; set; } = password;
 }

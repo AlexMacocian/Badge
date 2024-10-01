@@ -1,4 +1,5 @@
-﻿using Badge.Filters;
+﻿using Badge.Converters;
+using Badge.Filters;
 using Badge.Middleware;
 using Badge.Options;
 using Badge.Services.Applications;
@@ -32,7 +33,9 @@ public static class WebApplicationBuilderExtensions
             .Services
                 .Configure<ApplicationDatabaseOptions>(builder.Configuration.GetRequiredSection($"Applications:ApplicationDatabase"))
                 .Configure<ApplicationMembershipDatabaseOptions>(builder.Configuration.GetRequiredSection($"Applications:MembershipDatabase"))
+                .Configure<ClientSecretDatabaseOptions>(builder.Configuration.GetRequiredSection($"Applications:ClientSecretDatabase"))
                 .AddScoped<IApplicationDatabase, SQLiteApplicationDatabase>()
+                .AddScoped<IClientSecretDatabase, SQLiteClientSecretDatabase>()
                 .AddScoped<IApplicationMembershipDatabase, SQLiteApplicationMembershipDatabase>()
                 .AddScoped<IApplicationService, ApplicationService>();
 
@@ -106,6 +109,7 @@ public static class WebApplicationBuilderExtensions
     {
         builder.ThrowIfNull().Services.ConfigureHttpJsonOptions(options =>
         {
+            options.SerializerOptions.Converters.Add(new IdentifierConverter());
             options.SerializerOptions.TypeInfoResolver = SerializationContext.Default;
         });
 

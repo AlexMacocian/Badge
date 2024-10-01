@@ -17,11 +17,12 @@ namespace Badge;
 [JsonSerializable(typeof(UserDetails))]
 [JsonSerializable(typeof(AuthorizeRequest))]
 [JsonSerializable(typeof(AuthorizeResponse))]
-[JsonSerializable(typeof(Application))]
-[JsonSerializable(typeof(List<Application>))]
 [JsonSerializable(typeof(CreateApplicationRequest))]
-[JsonSerializable(typeof(ApplicationWithRights))]
-[JsonSerializable(typeof(List<ApplicationWithRights>))]
+[JsonSerializable(typeof(ApplicationResponse))]
+[JsonSerializable(typeof(List<ApplicationResponse>))]
+[JsonSerializable(typeof(ClientSecretResponse))]
+[JsonSerializable(typeof(List<ClientSecretResponse>))]
+[JsonSerializable(typeof(ClientSecretResponseWithPassword))]
 public partial class SerializationContext : JsonSerializerContext
 {
 }

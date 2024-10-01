@@ -1,4 +1,5 @@
 ﻿using Badge.Models;
+using Badge.Models.Identity;
 using Badge.Options;
 using Microsoft.Extensions.Options;
 using System.Core.Extensions;
@@ -36,7 +37,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         this.logger = logger.ThrowIfNull();
     }
 
-    public async Task<bool> AssignMember(string applicationId, string memberId, CancellationToken cancellationToken)
+    public async Task<bool> AssignMember(ApplicationIdentifier applicationId, UserIdentifier memberId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -50,7 +51,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         }
     }
 
-    public async Task<bool> RemoveMember(string applicationId, string memberId, CancellationToken cancellationToken)
+    public async Task<bool> RemoveMember(ApplicationIdentifier applicationId, UserIdentifier memberId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -64,7 +65,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         }
     }
 
-    public async Task<bool> AssignOwner(string applicationId, string ownerId, CancellationToken cancellationToken)
+    public async Task<bool> AssignOwner(ApplicationIdentifier applicationId, UserIdentifier ownerId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -78,7 +79,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         }
     }
 
-    public async Task<bool> RemoveOwner(string applicationId, string ownerId, CancellationToken cancellationToken)
+    public async Task<bool> RemoveOwner(ApplicationIdentifier applicationId, UserIdentifier ownerId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -92,7 +93,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         }
     }
 
-    public async Task<IEnumerable<string>> GetOwners(string applicationId, CancellationToken cancellationToken)
+    public async Task<IEnumerable<UserIdentifier>> GetOwners(ApplicationIdentifier applicationId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -106,7 +107,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         }
     }
 
-    public async Task<IEnumerable<string>> GetOwnedApplications(string ownerId, CancellationToken cancellationToken)
+    public async Task<IEnumerable<ApplicationIdentifier>> GetOwnedApplications(UserIdentifier ownerId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -120,7 +121,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         }
     }
 
-    public async Task<IEnumerable<(string ApplicationId, bool Owned)>> GetApplications(string memberId, CancellationToken cancellationToken)
+    public async Task<IEnumerable<(ApplicationIdentifier ApplicationId, bool Owned)>> GetApplications(UserIdentifier memberId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -134,7 +135,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         }
     }
 
-    public async Task<bool> DeleteApplication(string applicationId, CancellationToken cancellationToken)
+    public async Task<bool> DeleteApplication(ApplicationIdentifier applicationId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -148,7 +149,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         }
     }
 
-    public async Task<bool> DeleteOwner(string ownerId, CancellationToken cancellationToken)
+    public async Task<bool> DeleteOwner(UserIdentifier ownerId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -162,15 +163,15 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         }
     }
 
-    private async Task<bool> CreateEntry(string applicationId, string member, ApplicationMembership applicationMembership, CancellationToken cancellationToken)
+    private async Task<bool> CreateEntry(ApplicationIdentifier applicationId, UserIdentifier member, ApplicationMembership applicationMembership, CancellationToken cancellationToken)
     {
         var entryId = GetEntryId(applicationId, member, applicationMembership);
         var creationDate = DateTime.Now;
         var query = $"INSERT INTO {this.options.TableName}({EntryIdKey}, {ApplicationIdKey}, {MemberIdKey}, {MemberTypeKey}, {CreationDateKey}) Values (@entryId, @applicationId, @member, @type, @creationDate)";
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@entryId", entryId);
-        command.Parameters.AddWithValue("@applicationId", applicationId);
-        command.Parameters.AddWithValue("@member", member);
+        command.Parameters.AddWithValue("@applicationId", applicationId.ToString());
+        command.Parameters.AddWithValue("@member", member.ToString());
         command.Parameters.AddWithValue("@type", applicationMembership);
         command.Parameters.AddWithValue("@creationDate", creationDate.ToString(DateTimeFormat));
 
@@ -178,7 +179,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         return result == 1;
     }
 
-    private async Task<bool> RemoveEntry(string applicationId, string ownerId, ApplicationMembership applicationMembership, CancellationToken cancellationToken)
+    private async Task<bool> RemoveEntry(ApplicationIdentifier applicationId, UserIdentifier ownerId, ApplicationMembership applicationMembership, CancellationToken cancellationToken)
     {
         var entryId = GetEntryId(applicationId, ownerId, applicationMembership);
         var query = $"DELETE FROM {this.options.TableName} WHERE {EntryIdKey} = @entryId";
@@ -189,79 +190,97 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         return result == 1;
     }
 
-    private async Task<bool> RemoveEntriesByApplication(string applicationId, CancellationToken cancellationToken)
+    private async Task<bool> RemoveEntriesByApplication(ApplicationIdentifier applicationId, CancellationToken cancellationToken)
     {
         var query = $"DELETE FROM {this.options.TableName} WHERE {ApplicationIdKey} = '@applicationId'";
         using var command = await this.GetCommand(query, cancellationToken);
-        command.Parameters.AddWithValue("@applicationId", applicationId);
+        command.Parameters.AddWithValue("@applicationId", applicationId.ToString());
 
         var result = await command.ExecuteNonQuery(cancellationToken);
         return result >= 0;
     }
 
-    private async Task<bool> RemoveEntriesByOwner(string member, CancellationToken cancellationToken)
+    private async Task<bool> RemoveEntriesByOwner(UserIdentifier member, CancellationToken cancellationToken)
     {
         var query = $"DELETE FROM {this.options.TableName} WHERE {MemberIdKey} = @member";
         using var command = await this.GetCommand(query, cancellationToken);
-        command.Parameters.AddWithValue("@member", member);
+        command.Parameters.AddWithValue("@member", member.ToString());
 
         var result = await command.ExecuteNonQuery(cancellationToken);
         return result >= 0;
     }
 
-    private async Task<List<string>> GetOwnedApplicationsInternal(string memberId, CancellationToken cancellationToken)
+    private async Task<List<ApplicationIdentifier>> GetOwnedApplicationsInternal(UserIdentifier memberId, CancellationToken cancellationToken)
     {
         var query = $"SELECT {ApplicationIdKey} FROM {this.options.TableName} WHERE {MemberIdKey} = @memberId AND {MemberTypeKey} = @memberType";
         using var command = await this.GetCommand(query, cancellationToken);
-        command.Parameters.AddWithValue("@memberId", memberId);
+        command.Parameters.AddWithValue("@memberId", memberId.ToString());
         command.Parameters.AddWithValue("@memberType", ApplicationMembership.Owner);
 
-        var applications = new List<string>();
+        var applications = new List<ApplicationIdentifier>();
         await foreach (var reader in command.ExecuteReader(cancellationToken))
         {
             var id = reader.GetString(0);
-            applications.Add(id);
+            if (!Identifier.TryParse<ApplicationIdentifier>(id, out var appId) ||
+                appId is null)
+            {
+                continue;
+            }
+
+            applications.Add(appId);
         }
 
         return applications;
     }
 
-    private async Task<List<(string, bool)>> GetApplicationsInternal(string memberId, CancellationToken cancellationToken)
+    private async Task<List<(ApplicationIdentifier, bool)>> GetApplicationsInternal(UserIdentifier memberId, CancellationToken cancellationToken)
     {
         var query = $"SELECT * FROM {this.options.TableName} WHERE {MemberIdKey} = @memberId";
         using var command = await this.GetCommand(query, cancellationToken);
-        command.Parameters.AddWithValue("@memberId", memberId);
+        command.Parameters.AddWithValue("@memberId", memberId.ToString());
 
-        var applications = new List<(string, bool)>();
+        var applications = new List<(ApplicationIdentifier, bool)>();
         await foreach(var reader in command.ExecuteReader(cancellationToken))
         {
             var id = reader.GetString(1);
+            if (!Identifier.TryParse<ApplicationIdentifier>(id, out var appId) ||
+                appId is null)
+            {
+                continue;
+            }
+
             var type = reader.GetInt32(3);
-            applications.Add((id, (ApplicationMembership)type == ApplicationMembership.Owner));
+            applications.Add((appId, (ApplicationMembership)type == ApplicationMembership.Owner));
         }
 
         return applications;
     }
 
-    private async Task<List<string>> GetOwnersInternal(string applicationId, CancellationToken cancellationToken)
+    private async Task<List<UserIdentifier>> GetOwnersInternal(ApplicationIdentifier applicationId, CancellationToken cancellationToken)
     {
         var query = $"SELECT {MemberIdKey} FROM {this.options.TableName} WHERE {ApplicationIdKey} = @applicationId AND {MemberTypeKey} = @memberType";
         using var command = await this.GetCommand(query, cancellationToken);
-        command.Parameters.AddWithValue("@applicationId", applicationId);
+        command.Parameters.AddWithValue("@applicationId", applicationId.ToString());
         command.Parameters.AddWithValue("@memberType", ApplicationMembership.Owner);
 
-        var applications = new List<string>();
+        var users = new List<UserIdentifier>();
         await foreach (var reader in command.ExecuteReader(cancellationToken))
         {
             var id = reader.GetString(0);
-            applications.Add(id);
+            if (!Identifier.TryParse<UserIdentifier>(id, out var userId) ||
+                userId is null)
+            {
+                continue;
+            }
+
+            users.Add(userId);
         }
 
-        return applications;
+        return users;
     }
 
-    private static string GetEntryId(string applicationId, string ownerId, ApplicationMembership applicationMembership)
+    private static string GetEntryId(ApplicationIdentifier applicationId, UserIdentifier userId, ApplicationMembership applicationMembership)
     {
-        return $"{applicationId}-{ownerId}-{applicationMembership}";
+        return $"{applicationId}-{userId}-{applicationMembership}";
     }
 }

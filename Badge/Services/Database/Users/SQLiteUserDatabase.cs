@@ -1,4 +1,5 @@
 ﻿using Badge.Models;
+using Badge.Models.Identity;
 using Badge.Options;
 using Microsoft.Extensions.Options;
 using System.Core.Extensions;
@@ -73,10 +74,10 @@ public sealed class SQLiteUserDatabase(IOptions<UserDatabaseOptions> options, SQ
 
     private async Task<User?> CreateUserInternal(string username, string password, CancellationToken cancellationToken)
     {
-        var id = Guid.NewGuid().ToString();
+        var id = Identifier.Create<UserIdentifier>();
         var query = $"INSERT INTO {options.TableName} ({IdKey}, {UsernameKey}, {PasswordKey}) VALUES (@id, @username, @password)";
         using var command = await GetCommand(query, cancellationToken);
-        command.Parameters.AddWithValue("@id", id);
+        command.Parameters.AddWithValue("@id", id.ToString());
         command.Parameters.AddWithValue("@username", username);
         command.Parameters.AddWithValue("@password", password);
 
@@ -99,8 +100,15 @@ public sealed class SQLiteUserDatabase(IOptions<UserDatabaseOptions> options, SQ
 
         await foreach (var reader in command.ExecuteReader(cancellationToken))
         {
+            var id = reader.GetString(0);
+            if (!Identifier.TryParse<UserIdentifier>(id, out var userId) ||
+                userId is null)
+            {
+                continue;
+            }
+
             return new User(
-                id: reader.GetString(0),
+                id: userId,
                 username: reader.GetString(1),
                 password: reader.GetString(2));
         }

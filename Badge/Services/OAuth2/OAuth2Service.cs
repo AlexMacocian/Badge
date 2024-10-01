@@ -126,7 +126,7 @@ public sealed class OAuth2Service : IOAuth2Service
             Keys = certificatePairs.Select(kvp =>
             {
                 var keyDict = new Dictionary<string, string?>();
-                keyDict["kid"] = kvp.Key;
+                keyDict["kid"] = kvp.Key.ToString();
                 keyDict["use"] = "sig";
 
                 if (kvp.Value.GetRSAPublicKey() is RSA rsa)

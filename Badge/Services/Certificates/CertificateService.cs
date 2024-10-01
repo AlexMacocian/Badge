@@ -1,5 +1,6 @@
 ﻿using Badge.Converters;
 using Badge.Models;
+using Badge.Models.Identity;
 using Badge.Options;
 using Badge.Services.Database.Certificates;
 using Microsoft.Extensions.Options;
@@ -54,7 +55,7 @@ public sealed class CertificateService : ICertificateService
         this.signaturePadding = new RSASignaturePaddingTypeConverter().ConvertFrom(this.certificateServiceOptions.RSASignaturePadding!)!.Cast<RSASignaturePadding>();
     }
 
-    public async Task<IReadOnlyDictionary<string, X509Certificate2>> GetSigningCertificates(CancellationToken cancellationToken)
+    public async Task<IReadOnlyDictionary<KeyIdentifier, X509Certificate2>> GetSigningCertificates(CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -84,12 +85,12 @@ public sealed class CertificateService : ICertificateService
         }
     }
 
-    private async Task<IReadOnlyDictionary<string, X509Certificate2>> GetSigningCertificatesInternal(CancellationToken cancellationToken)
+    private async Task<IReadOnlyDictionary<KeyIdentifier, X509Certificate2>> GetSigningCertificatesInternal(CancellationToken cancellationToken)
     {
         var certificates = await this.certificateDatabase.GetSigningCertificates(cancellationToken);
         if (certificates is null)
         {
-            return new Dictionary<string, X509Certificate2>();
+            return new Dictionary<KeyIdentifier, X509Certificate2>();
         }
 
         return certificates.ToDictionary(k => k.Id, k => k.Certificate);
@@ -124,7 +125,7 @@ public sealed class CertificateService : ICertificateService
 
         // Generate a new signing certificate
         var certificate = this.GenerateSigningCertificate();
-        var uid = Guid.NewGuid().ToString();
+        var uid = Identifier.Create<KeyIdentifier>();
         var keyedCertificate = new KeyedCertificate(uid, certificate);
         if (!await this.certificateDatabase.StoreSigningCertificate(keyedCertificate, cancellationToken))
         {

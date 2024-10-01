@@ -17,19 +17,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     applicationsResponse.applications.forEach(entry => {
-        const app = entry.application;
         const row = document.createElement("tr");
 
         const idCell = document.createElement("td");
-        idCell.textContent = app.id;
+        const idLink = document.createElement("a");
+        idLink.href = `application?id=${entry.id}`;
+        idLink.textContent = entry.id;
+        idCell.appendChild(idLink);
         row.appendChild(idCell);
 
         const nameCell = document.createElement("td");
-        nameCell.textContent = app.name;
+        nameCell.textContent = entry.name;
         row.appendChild(nameCell);
 
         const creationDateCell = document.createElement("td");
-        creationDateCell.textContent = app.creationDate;
+        creationDateCell.textContent = entry.creationDate;
         row.appendChild(creationDateCell);
 
         const ownedCell = document.createElement("td");

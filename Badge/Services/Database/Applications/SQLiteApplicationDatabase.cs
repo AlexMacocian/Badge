@@ -1,4 +1,5 @@
 ﻿using Badge.Models;
+using Badge.Models.Identity;
 using Badge.Options;
 using Microsoft.Extensions.Options;
 using System.Core.Extensions;
@@ -47,7 +48,7 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
         }
     }
 
-    public async Task<Application?> GetApplicationById(string id, CancellationToken cancellationToken)
+    public async Task<Application?> GetApplicationById(ApplicationIdentifier id, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -107,7 +108,7 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
     {
         var query = $"INSERT INTO {this.options.TableName}({IdKey}, {NameKey}, {LogoBase64Key}, {CreationDateKey}) Values (@id, @name, @logo, @creation)";
         using var command = await this.GetCommand(query, cancellationToken);
-        command.Parameters.AddWithValue("@id", application.Id);
+        command.Parameters.AddWithValue("@id", application.Id.ToString());
         command.Parameters.AddWithValue("@name", application.Name);
         command.Parameters.AddWithValue("@logo", application.LogoBase64);
         command.Parameters.AddWithValue("@creation", application.CreationDate.ToString(DateTimeFormat));
@@ -116,19 +117,25 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
         return result == 1;
     }
 
-    private async Task<Application?> GetApplicationByIdInternal(string id, CancellationToken cancellationToken)
+    private async Task<Application?> GetApplicationByIdInternal(ApplicationIdentifier id, CancellationToken cancellationToken)
     {
         var query = $"SELECT * FROM {this.options.TableName} WHERE {IdKey} = @id";
         using var command = await this.GetCommand(query, cancellationToken);
-        command.Parameters.AddWithValue("@id", id);
+        command.Parameters.AddWithValue("@id", id.ToString());
 
         await foreach(var reader in command.ExecuteReader(cancellationToken))
         {
             var readId = reader.GetString(0);
+            if (!Identifier.TryParse<ApplicationIdentifier>(readId, out var appId) ||
+                appId is null)
+            {
+                continue;
+            }
+
             var name = reader.GetString(1);
             var logo = reader.GetString(2);
             var creationDate = reader.GetDateTime(3);
-            return new Application(readId, name, logo, creationDate);
+            return new Application(appId, name, logo, creationDate);
         }
 
         return default;
@@ -143,10 +150,16 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
         await foreach (var reader in command.ExecuteReader(cancellationToken))
         {
             var id = reader.GetString(0);
+            if (!Identifier.TryParse<ApplicationIdentifier>(id, out var appId) ||
+                appId is null)
+            {
+                continue;
+            }
+
             var readName = reader.GetString(1);
             var logo = reader.GetString(2);
             var creationDate = reader.GetDateTime(3);
-            return new Application(id, readName, logo, creationDate);
+            return new Application(appId, readName, logo, creationDate);
         }
 
         return default;

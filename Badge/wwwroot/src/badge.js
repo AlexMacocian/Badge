@@ -2,6 +2,58 @@
     const tokenKey = "jwt_token";
 
     /**
+     * Create client secret
+     * @param {string} applicationId
+     * @returns A success result { sucess:true, clientSecret:[] } or a failure { success:false, message:string }
+     */
+    async function createClientSecret(applicationId) {
+        try {
+            const response = await fetch("/api/applications/" + applicationId + "/secrets", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (response.ok) {
+                const clientSecret = await response.json();
+                return { success: true, clientSecret: clientSecret };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.message || "Login failed" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
+     * Gets a list of secrets associated with an application id. Only works for owned application ids
+     * @param {string} applicationId
+     * @returns A success result { sucess:true, secrets: [] } or a failure { success:false, message:string }
+     */
+    async function getClientSecrets(applicationId) {
+        try {
+            const response = await fetch("/api/applications/" + applicationId + "/secrets", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (response.ok) {
+                const secretsList = await response.json();
+                return { success: true, secrets: secretsList };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.message || "Fetch secrets failed" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
      * Get a list of applications registered under current user
      * @returns A success result { sucess:true, applications: [] } or a failure { success:false, message:string }
      */
@@ -195,7 +247,9 @@
         getUserDetails,
         authorize,
         createApplication,
-        getApplications
+        getApplications,
+        getClientSecrets,
+        createClientSecret
     };
 })();
 

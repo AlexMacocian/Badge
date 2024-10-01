@@ -1,4 +1,5 @@
 ﻿using Badge.Models;
+using Badge.Models.Identity;
 using Badge.Options;
 using Microsoft.Extensions.Options;
 using System.Core.Extensions;
@@ -87,9 +88,15 @@ public sealed class SQLiteCertificateDatabase : SqliteTableBase<CertificateDatab
         await foreach (var reader in command.ExecuteReader(cancellationToken))
         {
             var id = reader.GetString(0);
+            if (!Identifier.TryParse<KeyIdentifier>(id, out var keyId) ||
+                keyId is null)
+            {
+                continue;
+            }
+
             var certificateBase64 = reader.GetString(1);
             var certificate = new X509Certificate2(Convert.FromBase64String(certificateBase64), (string?)default, X509KeyStorageFlags.PersistKeySet);
-            certificateList.Add(new KeyedCertificate(id, certificate));
+            certificateList.Add(new KeyedCertificate(keyId, certificate));
         }
 
         return certificateList;
@@ -102,9 +109,15 @@ public sealed class SQLiteCertificateDatabase : SqliteTableBase<CertificateDatab
         await foreach (var reader in command.ExecuteReader(cancellationToken))
         {
             var id = reader.GetString(0);
+            if (!Identifier.TryParse<KeyIdentifier>(id, out var keyId) ||
+                keyId is null)
+            {
+                continue;
+            }
+
             var certificateBase64 = reader.GetString(1);
             var certificate = new X509Certificate2(Convert.FromBase64String(certificateBase64), (string?)default, X509KeyStorageFlags.PersistKeySet);
-            return new KeyedCertificate(id, certificate);
+            return new KeyedCertificate(keyId, certificate);
         }
 
         return default;
@@ -115,7 +128,7 @@ public sealed class SQLiteCertificateDatabase : SqliteTableBase<CertificateDatab
         var query = $"INSERT INTO {options.TableName}({IdKey}, {CertificateKey}, {NotBeforeKey}, {NotAfterKey}, {ThumbprintKey}, {UseKey}) Values (@id, @certificate, @notBefore, @notAfter, @thumbprint, @use)";
         var rawCert = Convert.ToBase64String(certificate.Certificate.Export(X509ContentType.Pkcs12));
         using var command = await GetCommand(query, cancellationToken);
-        command.Parameters.AddWithValue("@id", certificate.Id);
+        command.Parameters.AddWithValue("@id", certificate.Id.ToString());
         command.Parameters.AddWithValue("@certificate", rawCert);
         command.Parameters.AddWithValue("@notBefore", certificate.Certificate.NotBefore.ToString(DateTimeFormat));
         command.Parameters.AddWithValue("@notAfter", certificate.Certificate.NotAfter.ToString(DateTimeFormat));

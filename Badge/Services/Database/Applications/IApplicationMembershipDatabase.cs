@@ -1,14 +1,16 @@
-﻿namespace Badge.Services.Database.Applications;
+﻿using Badge.Models.Identity;
+
+namespace Badge.Services.Database.Applications;
 
 public interface IApplicationMembershipDatabase
 {
-    Task<bool> AssignOwner(string applicationId, string ownerId, CancellationToken cancellationToken);
-    Task<bool> RemoveOwner(string applicationId, string ownerId, CancellationToken cancellationToken);
-    Task<bool> AssignMember(string applicationId, string memberId, CancellationToken cancellationToken);
-    Task<bool> RemoveMember(string applicationId, string memberId, CancellationToken cancellationToken);
-    Task<IEnumerable<string>> GetOwners(string applicationId, CancellationToken cancellationToken);
-    Task<IEnumerable<string>> GetOwnedApplications(string ownerId, CancellationToken cancellationToken);
-    Task<IEnumerable<(string ApplicationId, bool Owned)>> GetApplications(string memberId, CancellationToken cancellationToken);
-    Task<bool> DeleteApplication(string applicationId, CancellationToken cancellationToken);
-    Task<bool> DeleteOwner(string ownerId, CancellationToken cancellationToken);
+    Task<bool> AssignOwner(ApplicationIdentifier applicationId, UserIdentifier ownerId, CancellationToken cancellationToken);
+    Task<bool> RemoveOwner(ApplicationIdentifier applicationId, UserIdentifier ownerId, CancellationToken cancellationToken);
+    Task<bool> AssignMember(ApplicationIdentifier applicationId, UserIdentifier memberId, CancellationToken cancellationToken);
+    Task<bool> RemoveMember(ApplicationIdentifier applicationId, UserIdentifier memberId, CancellationToken cancellationToken);
+    Task<IEnumerable<UserIdentifier>> GetOwners(ApplicationIdentifier applicationId, CancellationToken cancellationToken);
+    Task<IEnumerable<ApplicationIdentifier>> GetOwnedApplications(UserIdentifier ownerId, CancellationToken cancellationToken);
+    Task<IEnumerable<(ApplicationIdentifier ApplicationId, bool Owned)>> GetApplications(UserIdentifier memberId, CancellationToken cancellationToken);
+    Task<bool> DeleteApplication(ApplicationIdentifier applicationId, CancellationToken cancellationToken);
+    Task<bool> DeleteOwner(UserIdentifier ownerId, CancellationToken cancellationToken);
 }

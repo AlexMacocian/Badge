@@ -1,0 +1,15 @@
+﻿using System.Text.Json.Serialization;
+
+namespace Badge.Controllers.Models;
+
+public sealed class ClientSecretResponseWithPassword
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+    [JsonPropertyName("creationDate")]
+    public DateTime CreationDate { get; set; }
+    [JsonPropertyName("expirationDate")]
+    public DateTime ExpirationDate { get; set; }
+    [JsonPropertyName("password")]
+    public string? Password { get; set; }
+}
