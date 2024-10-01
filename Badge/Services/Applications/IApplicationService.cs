@@ -7,7 +7,7 @@ public interface IApplicationService
     Task<ApplicationCreationResponse> CreateApplication(string? applicationName, string? ownerId, string? logo, CancellationToken cancellationToken);
     Task<CreateClientSecretResponse> CreateClientSecret(string? applicationId, CancellationToken cancellationToken);
     Task<GetClientSecretsResponse> GetClientSecrets(string? applicationId, CancellationToken cancellationToken);
-    Task<DeleteClientSecretResponse> DeleteClientSecret(string? clientSecretId, CancellationToken cancellationToken);
+    Task<DeleteClientSecretResponse> DeleteClientSecret(string? clientSecretId, string? ownerApplicationId, CancellationToken cancellationToken);
     Task<ApplicationListResponse> GetApplicationsByOwner(string? ownerId, CancellationToken cancellationToken);
     Task<ApplicationWithRightsListResponse> GetApplicationsByMember(string? memberId, CancellationToken cancellationToken);
     Task<AssignMembershipResponse> AddOwner(string? applicationId, string? ownerId, CancellationToken cancellationToken);

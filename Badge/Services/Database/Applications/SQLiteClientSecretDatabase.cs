@@ -78,12 +78,12 @@ public sealed class SQLiteClientSecretDatabase : SqliteTableBase<ClientSecretDat
         }
     }
 
-    public async Task<bool> RemoveClientSecret(ClientSecretIdentifier clientSecretIdentifier, CancellationToken cancellationToken)
+    public async Task<bool> RemoveClientSecret(ClientSecretIdentifier clientSecretIdentifier, ApplicationIdentifier applicationIdentifier, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
         {
-            return await this.RemoveClientSecretInternal(clientSecretIdentifier, cancellationToken);
+            return await this.RemoveClientSecretInternal(clientSecretIdentifier, applicationIdentifier, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -106,11 +106,12 @@ public sealed class SQLiteClientSecretDatabase : SqliteTableBase<ClientSecretDat
         }
     }
 
-    private async Task<bool> RemoveClientSecretInternal(ClientSecretIdentifier clientSecretIdentifier, CancellationToken cancellationToken)
+    private async Task<bool> RemoveClientSecretInternal(ClientSecretIdentifier clientSecretIdentifier, ApplicationIdentifier applicationIdentifier, CancellationToken cancellationToken)
     {
-        var query = $"DELETE FROM {this.options.TableName} WHERE {IdKey} = @id";
+        var query = $"DELETE FROM {this.options.TableName} WHERE {IdKey} = @id AND {ApplicationIdKey} = @appId";
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@id", clientSecretIdentifier.ToString());
+        command.Parameters.AddWithValue("@appId", applicationIdentifier.ToString());
 
         var result = await command.ExecuteNonQuery(cancellationToken);
         return result == 1;

@@ -67,58 +67,6 @@ public sealed class ApplicationController
         };
     }
 
-    [GenerateGet(Pattern = "{applicationId}/secrets")]
-    [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
-    public async Task<IResult> GetApplicationClientSecrets(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
-    {
-        var result = await this.applicationService.GetApplicationsByMember(authenticatedUser.User.Id.ToString(), cancellationToken);
-        return result switch
-        {
-            ApplicationWithRightsListResponse.Success success => success.Applications.FirstOrDefault(app => app.Application.Id.ToString() == applicationId) switch
-            {
-                ApplicationWithRights foundApplication => await this.applicationService.GetClientSecrets(applicationId, cancellationToken) switch
-                {
-                    GetClientSecretsResponse.Success clientSecrets => Results.Json(
-                        clientSecrets.ClientSecrets.Select(c => new ClientSecretResponse { Id = c.Id.ToString(), CreationDate = c.CreationDate, ExpirationDate = c.ExpirationDate }).ToList(), SerializationContext.Default),
-                    GetClientSecretsResponse.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.Error, statusCode: clientSecretsFailure.StatusCode),
-                    _ => Results.Problem(statusCode: 500)
-                },
-                _ => Results.NotFound()
-            },
-            ApplicationWithRightsListResponse.Failure failure => Results.Problem(detail: failure.Error, statusCode: failure.StatusCode),
-            _ => Results.Problem(statusCode: 500)
-        };
-    }
-
-    [GeneratePost(Pattern = "{applicationId}/secrets")]
-    [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
-    public async Task<IResult> CreateApplicationClientSecret(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
-    {
-        var result = await this.applicationService.GetApplicationsByMember(authenticatedUser.User.Id.ToString(), cancellationToken);
-        return result switch
-        {
-            ApplicationWithRightsListResponse.Success success => success.Applications.FirstOrDefault(app => app.Application.Id.ToString() == applicationId) switch
-            {
-                ApplicationWithRights foundApplication => await this.applicationService.CreateClientSecret(applicationId, cancellationToken) switch
-                {
-                    CreateClientSecretResponse.Success clientSecret => 
-                        Results.Json(new ClientSecretResponseWithPassword
-                        { 
-                            Id = clientSecret.ClientSecret.Id.ToString(),
-                            CreationDate = clientSecret.ClientSecret.CreationDate,
-                            ExpirationDate = clientSecret.ClientSecret.ExpirationDate,
-                            Password = clientSecret.Password
-                        }, SerializationContext.Default),
-                    CreateClientSecretResponse.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.Error, statusCode: clientSecretsFailure.StatusCode),
-                    _ => Results.Problem(statusCode: 500)
-                },
-                _ => Results.NotFound()
-            },
-            ApplicationWithRightsListResponse.Failure failure => Results.Problem(detail: failure.Error, statusCode: failure.StatusCode),
-            _ => Results.Problem(statusCode: 500)
-        };
-    }
-
     [GeneratePost(Pattern = "create")]
     [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
     public async Task<IResult> CreateApplication([FromBody] CreateApplicationRequest createApplicationRequest, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)

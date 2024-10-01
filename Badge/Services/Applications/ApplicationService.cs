@@ -341,7 +341,7 @@ public sealed class ApplicationService : IApplicationService
         }
     }
 
-    public async Task<DeleteClientSecretResponse> DeleteClientSecret(string? clientSecretId, CancellationToken cancellationToken)
+    public async Task<DeleteClientSecretResponse> DeleteClientSecret(string? clientSecretId, string? ownerApplicationId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<ClientSecretIdentifier>(clientSecretId, out var clientSecretIdentifier) ||
@@ -350,9 +350,15 @@ public sealed class ApplicationService : IApplicationService
             return new DeleteClientSecretResponse.Failure(400, "Invalid client secret id");
         }
 
+        if (!Identifier.TryParse<ApplicationIdentifier>(ownerApplicationId, out var applicationIdentifier) ||
+            applicationIdentifier is null)
+        {
+            return new DeleteClientSecretResponse.Failure(400, "Invalid application id");
+        }
+
         try
         {
-            var result = await this.DeleteClientSecretInternal(clientSecretIdentifier, cancellationToken);
+            var result = await this.DeleteClientSecretInternal(clientSecretIdentifier, applicationIdentifier, cancellationToken);
             if (result is false)
             {
                 return new DeleteClientSecretResponse.Failure(500, "Failed to delete client secret");
@@ -367,9 +373,9 @@ public sealed class ApplicationService : IApplicationService
         }
     }
 
-    private async Task<bool> DeleteClientSecretInternal(ClientSecretIdentifier clientSecretIdentifier, CancellationToken cancellationToken)
+    private async Task<bool> DeleteClientSecretInternal(ClientSecretIdentifier clientSecretIdentifier, ApplicationIdentifier applicationIdentifier, CancellationToken cancellationToken)
     {
-        return await this.clientSecretDatabase.RemoveClientSecret(clientSecretIdentifier, cancellationToken);
+        return await this.clientSecretDatabase.RemoveClientSecret(clientSecretIdentifier, applicationIdentifier, cancellationToken);
     }
 
     private async Task<List<ClientSecret>?> GetClientSecretsInternal(ApplicationIdentifier applicationIdentifier, CancellationToken cancellationToken)
