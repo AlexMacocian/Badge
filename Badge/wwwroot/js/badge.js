@@ -2,6 +2,85 @@
     const tokenKey = "jwt_token";
 
     /**
+     * Set the redirect uris of an owned application
+     * @param {string} applicationId
+     * @param {string[]} redirectUris
+     * @returns A success result { sucess:true } or a failure { success:false, message:string }
+     */
+    async function postRedirectUris(applicationId, redirectUris) {
+        try {
+            const response = await fetch("/api/applications/" + applicationId + "/redirect-uris", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(redirectUris)
+            });
+
+            if (response.ok) {
+                return { success: true };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.detail || "Failed to post redirect uris" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
+     * Gets a list of redirect URIs associated with an application id. Only works for owned application ids
+     * @param {string} applicationId
+     * @returns A success result { sucess:true, redirectUris: [] } or a failure { success:false, message:string }
+     */
+    async function getRedirectUris(applicationId) {
+        try {
+            const response = await fetch("/api/applications/" + applicationId + "/redirect-uris", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (response.ok) {
+                const redirectUrisList = await response.json();
+                return { success: true, redirectUris: redirectUrisList };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.detail || "Fetch redirect uris failed" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
+     * Delete client secret
+     * @param {string} clientSecretId
+     * @param {string} applicationId
+     * @returns A success result { sucess:true } or a failure { success:false, message:string }
+     */
+    async function deleteClientSecret(applicationId, clientSecretId) {
+        try {
+            const response = await fetch("/api/applications/" + applicationId + "/secrets/" + clientSecretId, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (response.ok) {
+                return { success: true };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.detail || "Client secret deletion failed" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
      * Create client secret
      * @param {string} applicationId
      * @returns A success result { sucess:true, clientSecret:[] } or a failure { success:false, message:string }
@@ -20,7 +99,7 @@
                 return { success: true, clientSecret: clientSecret };
             } else {
                 const error = await response.json();
-                return { success: false, message: error.message || "Login failed" };
+                return { success: false, message: error.detail || "Client secret creation failed" };
             }
         } catch (error) {
             return { success: false, message: "An error occurred. Please try again." };
@@ -46,7 +125,33 @@
                 return { success: true, secrets: secretsList };
             } else {
                 const error = await response.json();
-                return { success: false, message: error.message || "Fetch secrets failed" };
+                return { success: false, message: error.detail || "Fetch secrets failed" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
+     * Get application details of an application registered under current user
+     * @param {string} applicationId 
+     * @returns A success result { sucess:true, applications: [] } or a failure { success:false, message:string }
+     */
+    async function getApplication(applicationId) {
+        try {
+            const response = await fetch("/api/applications/" + applicationId, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (response.ok) {
+                const application = await response.json();
+                return { success: true, application: application };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.detail || "Fetch application failed" };
             }
         } catch (error) {
             return { success: false, message: "An error occurred. Please try again." };
@@ -71,7 +176,7 @@
                 return { success: true, applications: applicationList };
             } else {
                 const error = await response.json();
-                return { success: false, message: error.message || "Fetch applications failed" };
+                return { success: false, message: error.detail || "Fetch applications failed" };
             }
         } catch (error) {
             return { success: false, message: "An error occurred. Please try again." };
@@ -97,7 +202,7 @@
                 return { success: true };
             } else {
                 const error = await response.json();
-                return { success: false, message: error.message || "Creation failed" };
+                return { success: false, message: error.detail || "Application creation failed" };
             }
         } catch (error) {
             return { success: false, message: "An error occurred. Please try again." };
@@ -122,7 +227,7 @@
                 return { success: true, user };
             } else {
                 const error = await response.json();
-                return { success: false, message: error.message || "Login failed" };
+                return { success: false, message: error.detail || "Fetch user details failed" };
             }
         } catch (error) {
             return { success: false, message: "An error occurred. Please try again." };
@@ -163,7 +268,7 @@
                 return { success: true, token };
             } else {
                 const error = await response.json();
-                return { success: false, message: error.message || "Login failed" };
+                return { success: false, message: error.detail || "Login failed" };
             }
         } catch (error) {
             return { success: false, message: "An error occurred. Please try again." };
@@ -191,7 +296,7 @@
                 return { success: true, token };
             } else {
                 const error = await response.json();
-                return { success: false, message: error.message || "Registration failed" };
+                return { success: false, message: error.detail || "Registration failed" };
             }
         } catch (error) {
             return { success: false, message: "An error occurred. Please try again." };
@@ -224,7 +329,7 @@
                 return { success: true, result };
             } else {
                 const error = await response.json();
-                return { success: false, message: error.message || "Login failed" };
+                return { success: false, message: error.detail || "Authorize failed" };
             }
         } catch (error) {
             return { success: false, message: "An error occurred. Please try again." };
@@ -249,7 +354,11 @@
         createApplication,
         getApplications,
         getClientSecrets,
-        createClientSecret
+        createClientSecret,
+        getRedirectUris,
+        postRedirectUris,
+        deleteClientSecret,
+        getApplication
     };
 })();
 

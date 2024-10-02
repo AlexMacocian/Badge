@@ -1,0 +1,62 @@
+﻿body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+}
+
+.header {
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    padding: 20px 0;
+}
+
+    .header a {
+        margin: 0;
+        font-size: 3em;
+        color: inherit;
+        text-decoration: none;
+    }
+
+.main {
+    padding: 40px 20px;
+    text-align: center;
+}
+
+    .main h2 {
+        font-size: 2.5em;
+        color: #333;
+    }
+
+    .main p {
+        font-size: 1.2em;
+        color: #666;
+        line-height: 1.6;
+        margin: 20px 0;
+    }
+
+.cta-button {
+    background-color: #28a745;
+    color: #fff;
+    padding: 15px 30px;
+    font-size: 1.2em;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+    .cta-button:hover {
+        background-color: #218838;
+    }
+
+.footer {
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    padding: 10px 0;
+    position: absolute;
+    width: 100%;
+    bottom: 0;
+}

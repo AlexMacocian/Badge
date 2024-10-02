@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script type="module" src="/src/myapplications.js"></script>
+    <script type="module" src="/js/myapplications.js"></script>
+    <script type="module" src="/js/uhf.js"></script>
+    <link rel="stylesheet" href="/css/style.css" />
     <title>Badge - My applications</title>
 </head>
 <body>
+    <div id="header"></div>
+
     <h1>My applications</h1>
     <table id="applicationsTable">
         <thead>
@@ -22,5 +26,7 @@
     </table>
     <a href="create.html">Create new application</a>
     <div id="errorMessage" style="color: red; display: none;"></div>
+
+    <div id="footer"></div>
 </body>
 </html>

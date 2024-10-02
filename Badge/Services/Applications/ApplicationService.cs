@@ -372,6 +372,51 @@ public sealed class ApplicationService : IApplicationService
         }
     }
 
+    public async Task<Result<bool>> UpdateRedirectUris(string? applicationId, List<string>? redirectUris, CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
+            applicationIdentifier is null)
+        {
+            return Result.Failure<bool>(400, "Invalid application id");
+        }
+
+        if (redirectUris is null)
+        {
+            return Result.Failure<bool>(400, "Invalid redirect uris");
+        }
+
+        foreach(var redirectUri in redirectUris)
+        {
+            if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out var result))
+            {
+                return Result.Failure<bool>(400, $"{redirectUri} is not a valid URI");
+            }
+
+            if (result.Scheme.ToLower() is not "http" and not "https")
+            {
+                return Result.Failure<bool>(400, $"{redirectUri} has invalid scheme {result.Scheme}. Only 'http' or 'https' are allowed");
+            }
+        }
+
+        try
+        {
+            var result = await this.UpdateRedirectUrisInternal(applicationIdentifier, redirectUris, cancellationToken);
+            if (result)
+            {
+                return Result.Success(true);
+            }
+
+            return Result.Failure<bool>(500, "Unexpected error occurred");
+        }
+        catch (Exception e)
+        {
+            scopedLogger.LogError(e, "Encountered exception while updating logo");
+        }
+
+        return Result.Failure<bool>(500, "Unexpected error occurred");
+    }
+
     private async Task<bool> DeleteClientSecretInternal(ClientSecretIdentifier clientSecretIdentifier, ApplicationIdentifier applicationIdentifier, CancellationToken cancellationToken)
     {
         return await this.clientSecretDatabase.RemoveClientSecret(clientSecretIdentifier, applicationIdentifier, cancellationToken);
@@ -493,5 +538,16 @@ public sealed class ApplicationService : IApplicationService
         }
 
         return applicationList;
+    }
+
+    private async Task<bool> UpdateRedirectUrisInternal(ApplicationIdentifier applicationId, List<string> redirectUris, CancellationToken cancellationToken)
+    {
+        if (applicationId is null)
+        {
+            return false;
+        }
+
+        var result = await this.applicationDatabase.UpdateRedirectUris(applicationId.ToString(), redirectUris, cancellationToken);
+        return result;
     }
 }
