@@ -130,8 +130,8 @@ public sealed class SQLiteCertificateDatabase : SqliteTableBase<CertificateDatab
         using var command = await GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@id", certificate.Id.ToString());
         command.Parameters.AddWithValue("@certificate", rawCert);
-        command.Parameters.AddWithValue("@notBefore", certificate.Certificate.NotBefore.ToString(DateTimeFormat));
-        command.Parameters.AddWithValue("@notAfter", certificate.Certificate.NotAfter.ToString(DateTimeFormat));
+        command.Parameters.AddWithValue("@notBefore", certificate.Certificate.NotBefore.ToUniversalTime().ToString(DateTimeFormat));
+        command.Parameters.AddWithValue("@notAfter", certificate.Certificate.NotAfter.ToUniversalTime().ToString(DateTimeFormat));
         command.Parameters.AddWithValue("@thumbprint", certificate.Certificate.Thumbprint);
         command.Parameters.AddWithValue("@use", UseSigning);
 

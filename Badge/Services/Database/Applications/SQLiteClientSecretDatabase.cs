@@ -133,8 +133,8 @@ public sealed class SQLiteClientSecretDatabase : SqliteTableBase<ClientSecretDat
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@id", clientSecret.Id.ToString());
         command.Parameters.AddWithValue("@appId", clientSecret.ApplicationIdentifier.ToString());
-        command.Parameters.AddWithValue("@creationDate", clientSecret.CreationDate.ToString(DateTimeFormat));
-        command.Parameters.AddWithValue("@expirationDate", clientSecret.ExpirationDate.ToString(DateTimeFormat));
+        command.Parameters.AddWithValue("@creationDate", clientSecret.CreationDate.ToUniversalTime().ToString(DateTimeFormat));
+        command.Parameters.AddWithValue("@expirationDate", clientSecret.ExpirationDate.ToUniversalTime().ToString(DateTimeFormat));
         command.Parameters.AddWithValue("@hash", clientSecret.Hash);
 
         var result = await command.ExecuteNonQuery(cancellationToken);

@@ -5,7 +5,7 @@ using System.Extensions.Core;
 
 namespace Badge.Controllers;
 
-[GenerateController(Pattern = "api/status")]
+[GenerateController("api/status")]
 public sealed class StatusController
 {
     private readonly IStatusService statusService;

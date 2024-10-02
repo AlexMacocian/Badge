@@ -1,5 +1,4 @@
 ﻿using Badge.Controllers.Models;
-using Badge.Extensions;
 using Badge.Filters;
 using Badge.Models;
 using Badge.Services.Status;
@@ -10,7 +9,7 @@ using System.Core.Extensions;
 
 namespace Badge.Controllers;
 
-[GenerateController(Pattern = "/api/users")]
+[GenerateController("/api/users")]
 public sealed class UsersController
 {
     private readonly IStatusService statusService;
@@ -24,7 +23,7 @@ public sealed class UsersController
         this.userService = userService.ThrowIfNull();
     }
 
-    [GeneratePost(Pattern = "login")]
+    [GeneratePost("login")]
     public async Task<IResult> Login([FromBody] UsernameWithPassword payload, HttpContext httpContext, CancellationToken cancellationToken)
     {
         var result = await this.userService.Login(payload.Username, payload.Password, cancellationToken);
@@ -38,7 +37,7 @@ public sealed class UsersController
         return Results.Content(result.Token, "text/plain");
     }
 
-    [GeneratePost(Pattern = "create")]
+    [GeneratePost("create")]
     public async Task<IResult> Create([FromBody] UsernameWithPassword payload, HttpContext httpContext, CancellationToken cancellationToken)
     {
         var result = await this.userService.CreateUser(payload.Username, payload.Password, cancellationToken);
@@ -52,8 +51,8 @@ public sealed class UsersController
         return Results.Content(result.Token, "text/plain");
     }
 
-    [GenerateGet(Pattern = "me")]
-    [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
+    [GenerateGet("me")]
+    [RouteFilter<AuthenticatedFilter>]
     public Task<IResult> Me(AuthenticatedUser authenticatedUser)
     {
         return authenticatedUser.User switch

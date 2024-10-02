@@ -173,7 +173,7 @@ public sealed class SQLiteApplicationMembershipDatabase : SqliteTableBase<Applic
         command.Parameters.AddWithValue("@applicationId", applicationId.ToString());
         command.Parameters.AddWithValue("@member", member.ToString());
         command.Parameters.AddWithValue("@type", applicationMembership);
-        command.Parameters.AddWithValue("@creationDate", creationDate.ToString(DateTimeFormat));
+        command.Parameters.AddWithValue("@creationDate", creationDate.ToUniversalTime().ToString(DateTimeFormat));
 
         var result = await command.ExecuteNonQuery(cancellationToken);
         return result == 1;

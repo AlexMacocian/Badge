@@ -2,14 +2,13 @@
 using Badge.Filters;
 using Badge.Models;
 using Badge.Services.Applications;
-using Badge.Services.Applications.Models;
 using Microsoft.AspNetCore.Mvc;
 using Net.Sdk.Web;
 using System.Core.Extensions;
 
 namespace Badge.Controllers;
 
-[GenerateController(Pattern = "api/applications")]
+[GenerateController("api/applications")]
 public sealed class ApplicationController
 {
     private readonly IApplicationService applicationService;
@@ -23,14 +22,14 @@ public sealed class ApplicationController
         this.logger = logger.ThrowIfNull();
     }
 
-    [GenerateGet(Pattern = "me")]
-    [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
+    [GenerateGet("me")]
+    [RouteFilter<AuthenticatedFilter>]
     public async Task<IResult> GetApplications(AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         var result = await this.applicationService.GetApplicationsByMember(authenticatedUser.User.Id.ToString(), cancellationToken);
         return result switch
         {
-            ApplicationWithRightsListResponse.Success success => Results.Json(success.Applications.Select(a => new ApplicationResponse
+            Result<List<ApplicationWithRights>>.Success success => Results.Json(success.Result.Select(a => new ApplicationResponse
             { 
                 Id = a.Application.Id.ToString(),
                 LogoBase64 = a.Application.LogoBase64,
@@ -38,19 +37,19 @@ public sealed class ApplicationController
                 CreationDate = a.Application.CreationDate,
                 Owned = a.Owned
             }).ToList(), SerializationContext.Default),
-            ApplicationWithRightsListResponse.Failure failure => Results.Problem(detail: failure.Error, statusCode: failure.StatusCode),
+            Result<List<ApplicationWithRights>>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
             _ => Results.Problem(statusCode: 500)
         };
     }
 
-    [GenerateGet(Pattern = "{applicationId}")]
-    [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
+    [GenerateGet("{applicationId}")]
+    [RouteFilter<AuthenticatedFilter>]
     public async Task<IResult> GetApplication(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         var result = await this.applicationService.GetApplicationsByMember(authenticatedUser.User.Id.ToString(), cancellationToken);
         return result switch
         {
-            ApplicationWithRightsListResponse.Success success => success.Applications.FirstOrDefault(app => app.Application.Id.ToString() == applicationId) switch
+            Result<List<ApplicationWithRights>>.Success success => success.Result.FirstOrDefault(app => app.Application.Id.ToString() == applicationId) switch
             {
                 ApplicationWithRights foundApplication => Results.Json(new ApplicationResponse
                 {
@@ -62,28 +61,28 @@ public sealed class ApplicationController
                 }, SerializationContext.Default),
                 _ => Results.NotFound()
             },
-            ApplicationWithRightsListResponse.Failure failure => Results.Problem(detail: failure.Error, statusCode: failure.StatusCode),
+            Result<List<ApplicationWithRights>>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
             _ => Results.Problem(statusCode: 500)
         };
     }
 
-    [GeneratePost(Pattern = "create")]
-    [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
+    [GeneratePost("create")]
+    [RouteFilter<AuthenticatedFilter>]
     public async Task<IResult> CreateApplication([FromBody] CreateApplicationRequest createApplicationRequest, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         var result = await this.applicationService.CreateApplication(createApplicationRequest?.Name, authenticatedUser.User.Id.ToString(), createApplicationRequest?.Base64Logo, cancellationToken);
         return result switch
         {
-            ApplicationCreationResponse.Success success => Results.Created($"applications/{success.Application.Id}",
+            Result<Application>.Success success => Results.Created($"applications/{success.Result.Id}",
                 new ApplicationResponse
                 { 
-                    Id = success.Application.Id.ToString(),
-                    Name = success.Application.Name,
-                    CreationDate = success.Application.CreationDate,
-                    LogoBase64 = success.Application.LogoBase64,
+                    Id = success.Result.Id.ToString(),
+                    Name = success.Result.Name,
+                    CreationDate = success.Result.CreationDate,
+                    LogoBase64 = success.Result.LogoBase64,
                     Owned = true
                 }),
-            ApplicationCreationResponse.Failure failure => Results.Problem(detail: failure.Error, statusCode: failure.StatusCode),
+            Result<Application>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
             _ => Results.Problem(statusCode: 500)
         };
     }

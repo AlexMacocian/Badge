@@ -8,7 +8,7 @@ using System.Core.Extensions;
 
 namespace Badge.Controllers;
 
-[GenerateController(Pattern = "api/applications/{applicationId}/secrets")]
+[GenerateController("api/applications/{applicationId}/secrets")]
 public sealed class ClientSecretController
 {
     private readonly IApplicationService applicationService;
@@ -20,53 +20,53 @@ public sealed class ClientSecretController
     }
 
     [GenerateGet]
-    [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
+    [RouteFilter<AuthenticatedFilter>]
     public async Task<IResult> GetClientSecrets(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
         {
             return await this.applicationService.GetClientSecrets(applicationId, cancellationToken) switch
             {
-                GetClientSecretsResponse.Success clientSecrets => Results.Json(
-                    clientSecrets.ClientSecrets.Select(c => new ClientSecretResponse { Id = c.Id.ToString(), CreationDate = c.CreationDate, ExpirationDate = c.ExpirationDate }).ToList(), SerializationContext.Default),
-                GetClientSecretsResponse.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.Error, statusCode: clientSecretsFailure.StatusCode),
+                Result<List<ClientSecret>>.Success clientSecrets => Results.Json(
+                    clientSecrets.Result.Select(c => new ClientSecretResponse { Id = c.Id.ToString(), CreationDate = c.CreationDate, ExpirationDate = c.ExpirationDate }).ToList(), SerializationContext.Default),
+                Result<List<ClientSecret>>.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.ErrorMessage, statusCode: clientSecretsFailure.ErrorCode),
                 _ => Results.Problem(statusCode: 500)
             };
         }, cancellationToken);
     }
 
     [GeneratePost]
-    [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
+    [RouteFilter<AuthenticatedFilter>]
     public async Task<IResult> CreateClientSecret(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
         {
             return await this.applicationService.CreateClientSecret(applicationId, cancellationToken) switch
             {
-                CreateClientSecretResponse.Success clientSecret =>
+                Result<CreateClientSecretResponse>.Success clientSecret =>
                     Results.Json(new ClientSecretResponseWithPassword
                     {
-                        Id = clientSecret.ClientSecret.Id.ToString(),
-                        CreationDate = clientSecret.ClientSecret.CreationDate,
-                        ExpirationDate = clientSecret.ClientSecret.ExpirationDate,
-                        Password = clientSecret.Password
+                        Id = clientSecret.Result.ClientSecret.Id.ToString(),
+                        CreationDate = clientSecret.Result.ClientSecret.CreationDate,
+                        ExpirationDate = clientSecret.Result.ClientSecret.ExpirationDate,
+                        Password = clientSecret.Result.Password
                     }, SerializationContext.Default),
-                CreateClientSecretResponse.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.Error, statusCode: clientSecretsFailure.StatusCode),
+                Result<CreateClientSecretResponse>.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.ErrorMessage, statusCode: clientSecretsFailure.ErrorCode),
                 _ => Results.Problem(statusCode: 500)
             };
         }, cancellationToken);
     }
 
-    [GenerateDelete(Pattern = "{clientSecretId}")]
-    [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
+    [GenerateDelete("{clientSecretId}")]
+    [RouteFilter<AuthenticatedFilter>]
     public async Task<IResult> DeleteClientSecret(string applicationId, AuthenticatedUser authenticatedUser, string clientSecretId, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
         {
             return await this.applicationService.DeleteClientSecret(clientSecretId, applicationId, cancellationToken) switch
             {
-                DeleteClientSecretResponse.Success => Results.Ok(),
-                DeleteClientSecretResponse.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.Error, statusCode: clientSecretsFailure.StatusCode),
+                Result<bool>.Success => Results.Ok(),
+                Result<bool>.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.ErrorMessage, statusCode: clientSecretsFailure.ErrorCode),
                 _ => Results.Problem(statusCode: 500)
             };
         }, cancellationToken);
@@ -77,12 +77,12 @@ public sealed class ClientSecretController
         var result = await this.applicationService.GetApplicationsByMember(authenticatedUser.User.Id.ToString(), cancellationToken);
         return result switch
         {
-            ApplicationWithRightsListResponse.Success success => success.Applications.FirstOrDefault(app => app.Application.Id.ToString() == applicationId) switch
+            Result<List<ApplicationWithRights>>.Success success => success.Result.FirstOrDefault(app => app.Application.Id.ToString() == applicationId) switch
             {
                 ApplicationWithRights foundApplication => await task(foundApplication),
                 _ => Results.NotFound()
             },
-            ApplicationWithRightsListResponse.Failure failure => Results.Problem(detail: failure.Error, statusCode: failure.StatusCode),
+            Result<List<ApplicationWithRights>>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
             _ => Results.Problem(statusCode: 500)
         };
     }

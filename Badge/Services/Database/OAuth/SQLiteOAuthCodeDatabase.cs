@@ -84,8 +84,8 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
         var query = $"INSERT INTO {options.TableName}({CodeKey}, {NotBeforeKey}, {NotAfterKey}, {UsernameKey}, {ScopeKey}, {RedirectUriKey}) Values (@code, @notBefore, @notAfter, @username, @scope, @redirect)";
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@code", code.Code);
-        command.Parameters.AddWithValue("@notBefore", code.NotBefore.ToString(DateTimeFormat));
-        command.Parameters.AddWithValue("@notAfter", code.NotAfter.ToString(DateTimeFormat));
+        command.Parameters.AddWithValue("@notBefore", code.NotBefore.ToUniversalTime().ToString(DateTimeFormat));
+        command.Parameters.AddWithValue("@notAfter", code.NotAfter.ToUniversalTime().ToString(DateTimeFormat));
         command.Parameters.AddWithValue("@username", code.Username);
         command.Parameters.AddWithValue("@scope", code.Scope);
         command.Parameters.AddWithValue("@redirect", code.Redirect);
@@ -118,7 +118,7 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
     {
         var query = $"DELETE * FROM {this.options.TableName} WHERE {NotAfterKey} < '@dateTime'";
         using var command = await this.GetCommand(query, cancellationToken);
-        command.Parameters.AddWithValue("@dateTime", expiration.ToString(DateTimeFormat));
+        command.Parameters.AddWithValue("@dateTime", expiration.ToUniversalTime().ToString(DateTimeFormat));
 
         await command.ExecuteNonQuery(cancellationToken);
     }

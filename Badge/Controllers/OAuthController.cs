@@ -10,7 +10,7 @@ using System.Extensions;
 
 namespace Badge.Controllers;
 
-[GenerateController(Pattern = "api/oauth")]
+[GenerateController("api/oauth")]
 public sealed class OAuthController
 {
     private readonly IOAuth2Service oAuth2Service;
@@ -24,15 +24,15 @@ public sealed class OAuthController
         this.logger = logger.ThrowIfNull();
     }
 
-    [GenerateGet(Pattern = ".well-known/jwks.json")]
+    [GenerateGet(".well-known/jwks.json")]
     public async Task<IResult> HandleRequest(CancellationToken cancellationToken)
     {
         var keySet = await this.oAuth2Service.GetJsonWebKeySet(cancellationToken);
         return Results.Json(keySet, SerializationContext.Default);
     }
 
-    [GeneratePost(Pattern = "authorize")]
-    [RouteFilter(RouteFilterType = typeof(AuthenticatedFilter))]
+    [GeneratePost("authorize")]
+    [RouteFilter<AuthenticatedFilter>]
     public async Task<IResult> Authorize(AuthenticatedUser authenticatedUser, [FromBody] AuthorizeRequest request, CancellationToken cancellationToken)
     {
         var result = await this.oAuth2Service.ValidateOAuth2Request(new OAuthRequest

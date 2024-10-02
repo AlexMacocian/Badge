@@ -5,7 +5,6 @@ using Badge.Services.Applications.Models;
 using Badge.Services.Database.Applications;
 using Badge.Services.Passwords;
 using Microsoft.Extensions.Options;
-using System;
 using System.Core.Extensions;
 using System.Extensions.Core;
 using System.Security.Cryptography;
@@ -37,19 +36,19 @@ public sealed class ApplicationService : IApplicationService
         this.logger = logger.ThrowIfNull();
     }
 
-    public async Task<AssignMembershipResponse> AddOwner(string? applicationId, string? ownerId, CancellationToken cancellationToken)
+    public async Task<Result<bool>> AddOwner(string? applicationId, string? ownerId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
             applicationIdentifier is null)
         {
-            return new AssignMembershipResponse.Failure(400, "Invalid application id");
+            return Result.Failure<bool>(400, "Invalid application id");
         }
 
         if (!Identifier.TryParse<UserIdentifier>(ownerId, out var ownerIdentifier) ||
             ownerIdentifier is null)
         {
-            return new AssignMembershipResponse.Failure(400, "Invalid owner id");
+            return Result.Failure<bool>(400, "Invalid owner id");
         }
 
         try
@@ -57,32 +56,32 @@ public sealed class ApplicationService : IApplicationService
             var result = await this.AssignOwnerInternal(applicationIdentifier, ownerIdentifier, cancellationToken);
             if (result)
             {
-                return new AssignMembershipResponse.Success();
+                return Result.Success(true);
             }
 
-            return new AssignMembershipResponse.Failure(500, "Unexpected error occurred");
+            return Result.Failure<bool>(500, "Unexpected error occurred");
         }
         catch (Exception e)
         {
             scopedLogger.LogError(e, "Encountered exception while assigning owner");
         }
 
-        return new AssignMembershipResponse.Failure(500, "Unexpected error occurred");
+        return Result.Failure<bool>(500, "Unexpected error occurred");
     }
 
-    public async Task<RemoveMembershipResponse> RemoveOwner(string? applicationId, string? ownerId, CancellationToken cancellationToken)
+    public async Task<Result<bool>> RemoveOwner(string? applicationId, string? ownerId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
             applicationIdentifier is null)
         {
-            return new RemoveMembershipResponse.Failure(400, "Invalid application id");
+            return Result.Failure<bool>(400, "Invalid application id");
         }
 
         if (!Identifier.TryParse<UserIdentifier>(ownerId, out var ownerIdentifier) ||
             ownerIdentifier is null)
         {
-            return new RemoveMembershipResponse.Failure(400, "Invalid owner id");
+            return Result.Failure<bool>(400, "Invalid owner id");
         }
 
         try
@@ -90,32 +89,32 @@ public sealed class ApplicationService : IApplicationService
             var result = await this.RemoveOwnerInternal(applicationIdentifier, ownerIdentifier, cancellationToken);
             if (result)
             {
-                return new RemoveMembershipResponse.Success();
+                return Result.Success(true);
             }
 
-            return new RemoveMembershipResponse.Failure(500, "Unexpected error occurred");
+            return Result.Failure<bool>(500, "Unexpected error occurred");
         }
         catch (Exception e)
         {
             scopedLogger.LogError(e, "Encountered exception while removing owner");
         }
 
-        return new RemoveMembershipResponse.Failure(500, "Unexpected error occurred");
+        return Result.Failure<bool>(500, "Unexpected error occurred");
     }
 
-    public async Task<AssignMembershipResponse> AddMember(string? applicationId, string? memberId, CancellationToken cancellationToken)
+    public async Task<Result<bool>> AddMember(string? applicationId, string? memberId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
             applicationIdentifier is null)
         {
-            return new AssignMembershipResponse.Failure(400, "Invalid application id");
+            return Result.Failure<bool>(400, "Invalid application id");
         }
 
         if (!Identifier.TryParse<UserIdentifier>(memberId, out var memberIdentifier) ||
             memberIdentifier is null)
         {
-            return new AssignMembershipResponse.Failure(400, "Invalid member id");
+            return Result.Failure<bool>(400, "Invalid member id");
         }
 
         try
@@ -123,32 +122,32 @@ public sealed class ApplicationService : IApplicationService
             var result = await this.AssignMemberInternal(applicationIdentifier, memberIdentifier, cancellationToken);
             if (result)
             {
-                return new AssignMembershipResponse.Success();
+                return Result.Success(true);
             }
 
-            return new AssignMembershipResponse.Failure(500, "Unexpected error occurred");
+            return Result.Failure<bool>(500, "Unexpected error occurred");
         }
         catch (Exception e)
         {
             scopedLogger.LogError(e, "Encountered exception while assigning owner");
         }
 
-        return new AssignMembershipResponse.Failure(500, "Unexpected error occurred");
+        return Result.Failure<bool>(500, "Unexpected error occurred");
     }
 
-    public async Task<RemoveMembershipResponse> RemoveMember(string? applicationId, string? memberId, CancellationToken cancellationToken)
+    public async Task<Result<bool>> RemoveMember(string? applicationId, string? memberId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
             applicationIdentifier is null)
         {
-            return new RemoveMembershipResponse.Failure(400, "Invalid application id");
+            return Result.Failure<bool>(400, "Invalid application id");
         }
 
         if (!Identifier.TryParse<UserIdentifier>(memberId, out var memberIdentifier) ||
             memberIdentifier is null)
         {
-            return new RemoveMembershipResponse.Failure(400, "Invalid member id");
+            return Result.Failure<bool>(400, "Invalid member id");
         }
 
         try
@@ -156,31 +155,31 @@ public sealed class ApplicationService : IApplicationService
             var result = await this.RemoveMemberInternal(applicationIdentifier, memberIdentifier, cancellationToken);
             if (result)
             {
-                return new RemoveMembershipResponse.Success();
+                return Result.Success(true);
             }
 
-            return new RemoveMembershipResponse.Failure(500, "Unexpected error occurred");
+            return Result.Failure<bool>(500, "Unexpected error occurred");
         }
         catch (Exception e)
         {
             scopedLogger.LogError(e, "Encountered exception while removing owner");
         }
 
-        return new RemoveMembershipResponse.Failure(500, "Unexpected error occurred");
+        return Result.Failure<bool>(500, "Unexpected error occurred");
     }
 
-    public async Task<ApplicationCreationResponse> CreateApplication(string? applicationName, string? ownerId, string? logo, CancellationToken cancellationToken)
+    public async Task<Result<Application>> CreateApplication(string? applicationName, string? ownerId, string? logo, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (string.IsNullOrWhiteSpace(applicationName))
         {
-            return new ApplicationCreationResponse.Failure(400, "Invalid application name");
+            return Result.Failure<Application>(400, "Invalid application name");
         }
 
         if (!Identifier.TryParse<UserIdentifier>(ownerId, out var ownerIdentifier) ||
             ownerIdentifier is null)
         {
-            return new ApplicationCreationResponse.Failure(400, "Invalid owner id");
+            return Result.Failure<Application>(400, "Invalid owner id");
         }
 
         try
@@ -189,32 +188,32 @@ public sealed class ApplicationService : IApplicationService
             if (application is null)
             {
                 scopedLogger.LogError("Failed to create application");
-                return new ApplicationCreationResponse.Failure(500, "Failed to create application");
+                return Result.Failure<Application>(500, "Failed to create application");
             }
 
             if (!await this.AssignOwnerInternal(application.Id, ownerIdentifier, cancellationToken))
             {
                 scopedLogger.LogError("Failed to assign application owner");
-                return new ApplicationCreationResponse.Failure(500, "Failed to assign ownerhip to new application");
+                return Result.Failure<Application>(500, "Failed to assign ownerhip to new application");
             }
 
-            return new ApplicationCreationResponse.Success(application);
+            return Result.Success(application);
         }
         catch(Exception e)
         {
             scopedLogger.LogError(e, "Encountered exception while creating application");
         }
 
-        return new ApplicationCreationResponse.Failure(500, "Unexpected error occurred");
+        return Result.Failure<Application>(500, "Unexpected error occurred");
     }
 
-    public async Task<UpdateLogoResponse> UpdateLogo(string? applicationId, string? logo, CancellationToken cancellationToken)
+    public async Task<Result<bool>> UpdateLogo(string? applicationId, string? logo, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
             applicationIdentifier is null)
         {
-            return new UpdateLogoResponse.Failure(400, "Invalid application id");
+            return Result.Failure<bool>(400, "Invalid application id");
         }
 
         try
@@ -222,26 +221,26 @@ public sealed class ApplicationService : IApplicationService
             var result = await this.UpdateLogoInternal(applicationIdentifier, logo, cancellationToken);
             if (result)
             {
-                return new UpdateLogoResponse.Success();
+                return Result.Success(true);
             }
 
-            return new UpdateLogoResponse.Failure(500, "Unexpected error occurred");
+            return Result.Failure<bool>(500, "Unexpected error occurred");
         }
         catch (Exception e)
         {
             scopedLogger.LogError(e, "Encountered exception while updating logo");
         }
 
-        return new UpdateLogoResponse.Failure(500, "Unexpected error occurred");
+        return Result.Failure<bool>(500, "Unexpected error occurred");
     }
 
-    public async Task<ApplicationListResponse> GetApplicationsByOwner(string? ownerId, CancellationToken cancellationToken)
+    public async Task<Result<List<Application>>> GetApplicationsByOwner(string? ownerId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<UserIdentifier>(ownerId, out var ownerIdentifier) ||
             ownerIdentifier is null)
         {
-            return new ApplicationListResponse.Failure(400, "Invalid owner id");
+            return Result.Failure<List<Application>>(400, "Invalid owner id");
         }
 
         try
@@ -249,26 +248,26 @@ public sealed class ApplicationService : IApplicationService
             var result = await this.GetApplicationsByOwnerInternal(ownerIdentifier, cancellationToken);
             if (result is not null)
             {
-                return new ApplicationListResponse.Success(result);
+                return Result.Success(result);
             }
 
-            return new ApplicationListResponse.Failure(500, "Unexpected error occurred");
+            return Result.Failure<List<Application>>(500, "Unexpected error occurred");
         }
         catch (Exception e)
         {
             scopedLogger.LogError(e, "Encountered exception while assigning owner");
         }
 
-        return new ApplicationListResponse.Failure(500, "Unexpected error occurred");
+        return Result.Failure<List<Application>>(500, "Unexpected error occurred");
     }
 
-    public async Task<ApplicationWithRightsListResponse> GetApplicationsByMember(string? memberId, CancellationToken cancellationToken)
+    public async Task<Result<List<ApplicationWithRights>>> GetApplicationsByMember(string? memberId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<UserIdentifier>(memberId, out var memberIdentifier) ||
             memberIdentifier is null)
         {
-            return new ApplicationWithRightsListResponse.Failure(400, "Invalid member id");
+            return Result.Failure<List<ApplicationWithRights>>(400, "Invalid member id");
         }
 
         try
@@ -276,26 +275,26 @@ public sealed class ApplicationService : IApplicationService
             var result = await this.GetApplicationsByMemberInternal(memberIdentifier, cancellationToken);
             if (result is not null)
             {
-                return new ApplicationWithRightsListResponse.Success(result);
+                return Result.Success(result);
             }
 
-            return new ApplicationWithRightsListResponse.Failure(500, "Unexpected error occurred");
+            return Result.Failure<List<ApplicationWithRights>>(500, "Unexpected error occurred");
         }
         catch (Exception e)
         {
             scopedLogger.LogError(e, "Encountered exception while assigning owner");
         }
 
-        return new ApplicationWithRightsListResponse.Failure(500, "Unexpected error occurred");
+        return Result.Failure<List<ApplicationWithRights>>(500, "Unexpected error occurred");
     }
 
-    public async Task<CreateClientSecretResponse> CreateClientSecret(string? applicationId, CancellationToken cancellationToken)
+    public async Task<Result<CreateClientSecretResponse>> CreateClientSecret(string? applicationId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
             applicationIdentifier is null)
         {
-            return new CreateClientSecretResponse.Failure(400, "Invalid application id");
+            return Result.Failure<CreateClientSecretResponse>(400, "Invalid application id");
         }
 
         try
@@ -303,25 +302,25 @@ public sealed class ApplicationService : IApplicationService
             var clientSecret = await this.CreateClientSecretInternal(applicationIdentifier, cancellationToken);
             if (clientSecret is null)
             {
-                return new CreateClientSecretResponse.Failure(500, "Failed to create client secret");
+                return Result.Failure<CreateClientSecretResponse>(500, "Failed to create client secret");
             }
 
-            return new CreateClientSecretResponse.Success(clientSecret.Value.Item1, clientSecret.Value.Item2);
+            return Result.Success(new CreateClientSecretResponse(clientSecret.Value.Item1, clientSecret.Value.Item2));
         }
         catch (Exception ex)
         {
             scopedLogger.LogError(ex, "Encountered exception while creating client secret");
-            return new CreateClientSecretResponse.Failure(500, "Failed to create client secret");
+            return Result.Failure<CreateClientSecretResponse>(500, "Failed to create client secret");
         }
     }
 
-    public async Task<GetClientSecretsResponse> GetClientSecrets(string? applicationId, CancellationToken cancellationToken)
+    public async Task<Result<List<ClientSecret>>> GetClientSecrets(string? applicationId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
             applicationIdentifier is null)
         {
-            return new GetClientSecretsResponse.Failure(400, "Invalid application id");
+            return Result.Failure<List<ClientSecret>>(400, "Invalid application id");
         }
 
         try
@@ -329,31 +328,31 @@ public sealed class ApplicationService : IApplicationService
             var clientSecrets = await this.GetClientSecretsInternal(applicationIdentifier, cancellationToken);
             if (clientSecrets is null)
             {
-                return new GetClientSecretsResponse.Failure(500, "Failed to get client secrets");
+                return Result.Failure<List<ClientSecret>>(500, "Failed to get client secrets");
             }
 
-            return new GetClientSecretsResponse.Success(clientSecrets);
+            return Result.Success(clientSecrets);
         }
         catch (Exception ex)
         {
             scopedLogger.LogError(ex, "Encountered exception while retrieving client secrets");
-            return new GetClientSecretsResponse.Failure(500, "Failed to get client secrets");
+            return Result.Failure<List<ClientSecret>>(500, "Failed to get client secrets");
         }
     }
 
-    public async Task<DeleteClientSecretResponse> DeleteClientSecret(string? clientSecretId, string? ownerApplicationId, CancellationToken cancellationToken)
+    public async Task<Result<bool>> DeleteClientSecret(string? clientSecretId, string? ownerApplicationId, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         if (!Identifier.TryParse<ClientSecretIdentifier>(clientSecretId, out var clientSecretIdentifier) ||
             clientSecretIdentifier is null)
         {
-            return new DeleteClientSecretResponse.Failure(400, "Invalid client secret id");
+            return Result.Failure<bool>(400, "Invalid client secret id");
         }
 
         if (!Identifier.TryParse<ApplicationIdentifier>(ownerApplicationId, out var applicationIdentifier) ||
             applicationIdentifier is null)
         {
-            return new DeleteClientSecretResponse.Failure(400, "Invalid application id");
+            return Result.Failure<bool>(400, "Invalid application id");
         }
 
         try
@@ -361,15 +360,15 @@ public sealed class ApplicationService : IApplicationService
             var result = await this.DeleteClientSecretInternal(clientSecretIdentifier, applicationIdentifier, cancellationToken);
             if (result is false)
             {
-                return new DeleteClientSecretResponse.Failure(500, "Failed to delete client secret");
+                return Result.Failure<bool>(500, "Failed to delete client secret");
             }
 
-            return new DeleteClientSecretResponse.Success();
+            return Result.Success(true);
         }
         catch (Exception ex)
         {
             scopedLogger.LogError(ex, "Encountered exception while retrieving client secrets");
-            return new DeleteClientSecretResponse.Failure(500, "Failed to delete client secret");
+            return Result.Failure<bool>(500, "Failed to delete client secret");
         }
     }
 
@@ -399,7 +398,7 @@ public sealed class ApplicationService : IApplicationService
             return default;
         }
 
-        var clientSecret = new ClientSecret(clientId, applicationIdentifier, DateTime.Now, DateTime.Now + this.options.ClientSecretValidity, passwordHash);
+        var clientSecret = new ClientSecret(clientId, applicationIdentifier, DateTime.UtcNow, DateTime.UtcNow + this.options.ClientSecretValidity, passwordHash);
         if (!await this.clientSecretDatabase.StoreClientSecret(clientSecret, cancellationToken))
         {
             return default;
@@ -411,7 +410,7 @@ public sealed class ApplicationService : IApplicationService
     private async Task<Application?> CreateApplicationInternal(string applicationName, string? logo, CancellationToken cancellationToken)
     {
         var applicationIdentifier = Identifier.Create<ApplicationIdentifier>();
-        var application = new Application(applicationIdentifier, applicationName, logo ?? string.Empty, DateTime.Now);
+        var application = new Application(applicationIdentifier, applicationName, logo ?? string.Empty, DateTime.UtcNow, []);
         var result = await this.applicationDatabase.CreateApplication(application, cancellationToken);
         if (!result)
         {
