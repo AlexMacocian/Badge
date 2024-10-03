@@ -24,8 +24,15 @@ public sealed class OAuthController
         this.logger = logger.ThrowIfNull();
     }
 
+    [GenerateGet(".well-known/openid-configuration")]
+    public async Task<IResult> GetDiscoveryDocument(CancellationToken cancellationToken)
+    {
+        var discoveryDocument = await this.oAuth2Service.GetOAuthDiscoveryDocument(cancellationToken);
+        return Results.Json(discoveryDocument, SerializationContext.Default);
+    }
+
     [GenerateGet(".well-known/jwks.json")]
-    public async Task<IResult> HandleRequest(CancellationToken cancellationToken)
+    public async Task<IResult> GetJwks(CancellationToken cancellationToken)
     {
         var keySet = await this.oAuth2Service.GetJsonWebKeySet(cancellationToken);
         return Results.Json(keySet, SerializationContext.Default);

@@ -6,6 +6,7 @@ using Badge.Services.Applications;
 using Badge.Services.Certificates;
 using Badge.Services.Database.Applications;
 using Badge.Services.Database.OAuth;
+using Badge.Services.JWT;
 using Badge.Services.OAuth2.Models;
 using Microsoft.Extensions.Options;
 using System.Cache;
@@ -22,6 +23,7 @@ public sealed class OAuth2Service : IOAuth2Service
 {
     private static AsyncValueCache<JsonWebKeySetResponse>? JsonWebKeySets;
 
+    private readonly IJWTService jWTService;
     private readonly IApplicationDatabase applicationDatabase;
     private readonly IApplicationService applicationService;
     private readonly OAuthServiceOptions options;
@@ -30,6 +32,7 @@ public sealed class OAuth2Service : IOAuth2Service
     private readonly ILogger<OAuth2Service> logger;
 
     public OAuth2Service(
+        IJWTService jWTService,
         IApplicationDatabase applicationDatabase,
         IApplicationService applicationService,
         IOptions<OAuthServiceOptions> options,
@@ -37,6 +40,7 @@ public sealed class OAuth2Service : IOAuth2Service
         ICertificateService certificateService,
         ILogger<OAuth2Service> logger)
     {
+        this.jWTService = jWTService.ThrowIfNull();
         this.applicationDatabase = applicationDatabase.ThrowIfNull();
         this.applicationService = applicationService.ThrowIfNull();
         this.options = options.ThrowIfNull().Value;
@@ -134,7 +138,9 @@ public sealed class OAuth2Service : IOAuth2Service
 
         var applicationScopes = application.Scopes;
         var requestedScopes = scopes.Split(' ');
-        if (requestedScopes.FirstOrDefault(scope => !applicationScopes.Contains(scope)) is string unknownScope)
+
+        // Ensure that the requested scopes are both whitelisted in the application and supported by the service
+        if (requestedScopes.FirstOrDefault(scope => !applicationScopes.Contains(scope) || this.options.ScopesSupported?.Contains(scope) is false) is string unknownScope)
         {
             return Result.Failure<OAuthValidationResponse>(400, $"Unknown scope {unknownScope}");
         }
@@ -149,6 +155,24 @@ public sealed class OAuth2Service : IOAuth2Service
         }
 
         return Result.Success(new OAuthValidationResponse(code, state));
+    }
+
+    public Task<OAuthDiscoveryDocument> GetOAuthDiscoveryDocument(CancellationToken cancellationToken)
+    {
+        return Task.FromResult(new OAuthDiscoveryDocument(
+            this.options.Issuer ?? throw new InvalidOperationException("Issuer is null"),
+            $"{this.options.Issuer}/oauth/authorize",
+            $"{this.options.Issuer}/api/oauth/token",
+            $"{this.options.Issuer}/api/oauth/userinfo",
+            $"{this.options.Issuer}/api/oauth/.well-known/jwks.json",
+            ["code", "token"],
+            ["public"],
+            [this.jWTService.GetSigningAlg()],
+            this.options.ScopesSupported ?? [],
+            ["client_secret_post"],
+            ["authorization_code"],
+            ["sub"]));
+        
     }
 
     private async Task<JsonWebKeySetResponse> GetJsonWebKeySetInternal()

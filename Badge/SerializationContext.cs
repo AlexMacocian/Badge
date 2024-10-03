@@ -26,6 +26,7 @@ namespace Badge;
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(UpdateClientSecretDetailRequest))]
 [JsonSerializable(typeof(UpdateApplicationScopesRequest))]
+[JsonSerializable(typeof(OAuthDiscoveryDocument))]
 public partial class SerializationContext : JsonSerializerContext
 {
 }

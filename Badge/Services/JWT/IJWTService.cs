@@ -7,4 +7,5 @@ public interface IJWTService
 {
     Task<JwtToken?> GetToken(string subjectId, CancellationToken cancellationToken);
     Task<ClaimsPrincipal?> ValidateToken(string token, CancellationToken cancellationToken);
+    string GetSigningAlg();
 }

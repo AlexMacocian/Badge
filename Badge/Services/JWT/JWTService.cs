@@ -60,6 +60,11 @@ public sealed class JWTService : IJWTService
         }
     }
 
+    public string GetSigningAlg()
+    {
+        return this.jwtServiceOptions.SigningAlgorithm;
+    }
+
     private async Task<JwtToken?> GetTokenInternal(string subjectId, CancellationToken cancellationToken)
     {
         var signingKey = await this.certificateService.GetSigningCertificate(cancellationToken);
@@ -115,4 +120,6 @@ public sealed class JWTService : IJWTService
         var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out SecurityToken validatedToken);
         return principal;
     }
+
+    
 }
