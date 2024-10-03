@@ -417,6 +417,44 @@ public sealed class ApplicationService : IApplicationService
         return Result.Failure<bool>(500, "Unexpected error occurred");
     }
 
+    public async Task<Result<bool>> UpdateClientSecretDetail(string? applicationId, string? clientSecretId, string? clientSecretDetail, CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
+            applicationIdentifier is null)
+        {
+            return Result.Failure<bool>(400, "Invalid application id");
+        }
+
+        if (!Identifier.TryParse<ClientSecretIdentifier>(clientSecretId, out var clientSecretIdentifier) ||
+            clientSecretIdentifier is null)
+        {
+            return Result.Failure<bool>(400, "Invalid client secret id");
+        }
+
+        if (clientSecretDetail is null)
+        {
+            return Result.Failure<bool>(400, "Detail cannot be null");
+        }
+
+        try
+        {
+            var result = await this.UpdateClientSecretDetailInternal(applicationIdentifier, clientSecretIdentifier, clientSecretDetail, cancellationToken);
+            if (result)
+            {
+                return Result.Success(true);
+            }
+
+            return Result.Failure<bool>(500, "Unexpected error occurred");
+        }
+        catch (Exception e)
+        {
+            scopedLogger.LogError(e, "Encountered exception while updating client secret detail");
+        }
+
+        return Result.Failure<bool>(500, "Unexpected error occurred");
+    }
+
     private async Task<bool> DeleteClientSecretInternal(ClientSecretIdentifier clientSecretIdentifier, ApplicationIdentifier applicationIdentifier, CancellationToken cancellationToken)
     {
         return await this.clientSecretDatabase.RemoveClientSecret(clientSecretIdentifier, applicationIdentifier, cancellationToken);
@@ -443,7 +481,8 @@ public sealed class ApplicationService : IApplicationService
             return default;
         }
 
-        var clientSecret = new ClientSecret(clientId, applicationIdentifier, DateTime.UtcNow, DateTime.UtcNow + this.options.ClientSecretValidity, passwordHash);
+        var detail = "My client secret";
+        var clientSecret = new ClientSecret(clientId, applicationIdentifier, detail, DateTime.UtcNow, DateTime.UtcNow + this.options.ClientSecretValidity, passwordHash);
         if (!await this.clientSecretDatabase.StoreClientSecret(clientSecret, cancellationToken))
         {
             return default;
@@ -542,12 +581,13 @@ public sealed class ApplicationService : IApplicationService
 
     private async Task<bool> UpdateRedirectUrisInternal(ApplicationIdentifier applicationId, List<string> redirectUris, CancellationToken cancellationToken)
     {
-        if (applicationId is null)
-        {
-            return false;
-        }
-
         var result = await this.applicationDatabase.UpdateRedirectUris(applicationId.ToString(), redirectUris, cancellationToken);
+        return result;
+    }
+
+    private async Task<bool> UpdateClientSecretDetailInternal(ApplicationIdentifier applicationIdentifier, ClientSecretIdentifier clientSecretIdentifier, string detail, CancellationToken cancellationToken)
+    {
+        var result = await this.clientSecretDatabase.UpdateClientSecretDetail(clientSecretIdentifier, applicationIdentifier, detail, cancellationToken);
         return result;
     }
 }

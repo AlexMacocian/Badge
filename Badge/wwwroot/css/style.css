@@ -60,3 +60,8 @@
     width: 100%;
     bottom: 0;
 }
+
+tr.disabled {
+    opacity: 0.5;
+    pointer-events: none; /* Prevents interaction */
+}

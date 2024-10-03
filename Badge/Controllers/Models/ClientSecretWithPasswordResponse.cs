@@ -6,6 +6,8 @@ public sealed class ClientSecretResponseWithPassword
 {
     [JsonPropertyName("id")]
     public string? Id { get; set; }
+    [JsonPropertyName("detail")]
+    public string? Detail { get; set; }
     [JsonPropertyName("creationDate")]
     public DateTime CreationDate { get; set; }
     [JsonPropertyName("expirationDate")]

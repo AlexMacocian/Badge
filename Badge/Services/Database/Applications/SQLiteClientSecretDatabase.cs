@@ -11,6 +11,7 @@ namespace Badge.Services.Database.Applications;
 public sealed class SQLiteClientSecretDatabase : SqliteTableBase<ClientSecretDatabaseOptions>, IClientSecretDatabase
 {
     private const string IdKey = "id";
+    private const string DetailKey = "detail";
     private const string ApplicationIdKey = "applicationid";
     private const string CreationDateKey = "creationdate";
     private const string ExpirationDateKey = "expirationdate";
@@ -24,7 +25,8 @@ public sealed class SQLiteClientSecretDatabase : SqliteTableBase<ClientSecretDat
 {ApplicationIdKey} TEXT NOT NULL,
 {CreationDateKey} TEXT NOT NULL,
 {ExpirationDateKey} TEXT NOT NULL,
-{HashKey} TEXT NOT NULL";
+{HashKey} TEXT NOT NULL,
+{DetailKey} TEXT NOT NULL";
 
     public SQLiteClientSecretDatabase(
         IOptions<ClientSecretDatabaseOptions> options,
@@ -106,6 +108,20 @@ public sealed class SQLiteClientSecretDatabase : SqliteTableBase<ClientSecretDat
         }
     }
 
+    public async Task<bool> UpdateClientSecretDetail(ClientSecretIdentifier clientSecretIdentifier, ApplicationIdentifier applicationIdentifier, string detail, CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        try
+        {
+            return await this.UpdateClientSecretDetailInternal(clientSecretIdentifier, applicationIdentifier, detail, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            scopedLogger.LogError(ex, "Encountered exception while updating client secret detail");
+            throw;
+        }
+    }
+
     private async Task<bool> RemoveClientSecretInternal(ClientSecretIdentifier clientSecretIdentifier, ApplicationIdentifier applicationIdentifier, CancellationToken cancellationToken)
     {
         var query = $"DELETE FROM {this.options.TableName} WHERE {IdKey} = @id AND {ApplicationIdKey} = @appId";
@@ -129,13 +145,14 @@ public sealed class SQLiteClientSecretDatabase : SqliteTableBase<ClientSecretDat
 
     private async Task<bool> StoreClientSecretInternal(ClientSecret clientSecret, CancellationToken cancellationToken)
     {
-        var query = $"INSERT INTO {this.options.TableName}({IdKey}, {ApplicationIdKey}, {CreationDateKey}, {ExpirationDateKey}, {HashKey}) Values (@id, @appId, @creationDate, @expirationDate, @hash)";
+        var query = $"INSERT INTO {this.options.TableName}({IdKey}, {ApplicationIdKey}, {CreationDateKey}, {ExpirationDateKey}, {HashKey}, {DetailKey}) Values (@id, @appId, @creationDate, @expirationDate, @hash, @detail)";
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@id", clientSecret.Id.ToString());
         command.Parameters.AddWithValue("@appId", clientSecret.ApplicationIdentifier.ToString());
         command.Parameters.AddWithValue("@creationDate", clientSecret.CreationDate.ToUniversalTime().ToString(DateTimeFormat));
         command.Parameters.AddWithValue("@expirationDate", clientSecret.ExpirationDate.ToUniversalTime().ToString(DateTimeFormat));
         command.Parameters.AddWithValue("@hash", clientSecret.Hash);
+        command.Parameters.AddWithValue("@detail", clientSecret.Detail);
 
         var result = await command.ExecuteNonQuery(cancellationToken);
         return result == 1;
@@ -164,7 +181,8 @@ public sealed class SQLiteClientSecretDatabase : SqliteTableBase<ClientSecretDat
             var creationDate = reader.GetDateTime(2);
             var expirationDate = reader.GetDateTime(3);
             var hash = reader.GetString(4);
-            return new ClientSecret(secretId, appId, creationDate, expirationDate, hash);
+            var detail = reader.GetString(5);
+            return new ClientSecret(secretId, appId, detail, creationDate, expirationDate, hash);
         }
 
         return default;
@@ -193,9 +211,22 @@ public sealed class SQLiteClientSecretDatabase : SqliteTableBase<ClientSecretDat
             var creationDate = reader.GetDateTime(2);
             var expirationDate = reader.GetDateTime(3);
             var hash = reader.GetString(4);
-            secrets.Add(new ClientSecret(secretId, appId, creationDate, expirationDate, hash));
+            var detail = reader.GetString(5);
+            secrets.Add(new ClientSecret(secretId, appId, detail, creationDate, expirationDate, hash));
         }
 
         return secrets;
+    }
+
+    private async Task<bool> UpdateClientSecretDetailInternal(ClientSecretIdentifier clientSecretIdentifier, ApplicationIdentifier applicationIdentifier, string detail, CancellationToken cancellationToken)
+    {
+        var query = $"UPDATE {this.options.TableName} SET {DetailKey} = @detail WHERE {IdKey} = @id AND {ApplicationIdKey} = @appId";
+        using var command = await this.GetCommand(query, cancellationToken);
+        command.Parameters.AddWithValue("@detail", detail);
+        command.Parameters.AddWithValue("@id", clientSecretIdentifier.ToString());
+        command.Parameters.AddWithValue("@appId", applicationIdentifier.ToString());
+
+        var result = await command.ExecuteNonQuery(cancellationToken);
+        return result == 1;
     }
 }

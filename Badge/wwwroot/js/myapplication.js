@@ -48,10 +48,26 @@ async function postRedirectUris() {
 function addClientSecretRow(clientSecret, tbody) {
     const row = document.createElement("tr");
 
-    const idCell = document.createElement("td");
-    idCell.textContent = clientSecret.id;
-    idCell.classList.add("id");
-    row.appendChild(idCell);
+    const detailCell = document.createElement("td");
+    detailCell.textContent = clientSecret.detail;
+    detailCell.classList.add("detail");
+    detailCell.style.minWidth = "200px";
+    detailCell.contentEditable = true;
+    detailCell.addEventListener("blur", async function () {
+        detailCell.contentEditable = false;
+        row.classList.add("disabled");
+        const applicationId = getApplicationId();
+        const response = await badge.updateClientSecretDetail(applicationId, clientSecret.id, detailCell.textContent);
+        row.classList.remove("disabled");
+        detailCell.contentEditable = true;
+        if (!response.success) {
+            showError(response.message);
+            return;
+        }
+
+        hideError();
+    });
+    row.appendChild(detailCell);
 
     const creationDateCell = document.createElement("td");
     creationDateCell.textContent = clientSecret.creationDate;
@@ -97,8 +113,12 @@ function addRedirectUriRow(redirectUri, tbody) {
     uriCell.contentEditable = true;
     uriCell.style.minWidth = "200px";
     uriCell.classList.add("uri");
-    uriCell.addEventListener("blur", function () {
-        postRedirectUris();
+    uriCell.addEventListener("blur", async function () {
+        row.classList.add("disabled");
+        uriCell.contentEditable = false;
+        await postRedirectUris();
+        uriCell.contentEditable = true;
+        row.classList.remove("disabled");
     });
 
     row.appendChild(uriCell);

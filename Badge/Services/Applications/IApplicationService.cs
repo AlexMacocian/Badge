@@ -17,4 +17,5 @@ public interface IApplicationService
     Task<Result<bool>> RemoveMember(string? applicationId, string? memberId, CancellationToken cancellationToken);
     Task<Result<bool>> UpdateLogo(string? applicationId, string? logo, CancellationToken cancellationToken);
     Task<Result<bool>> UpdateRedirectUris(string? applicationId, List<string>? redirectUris, CancellationToken cancellationToken);
+    Task<Result<bool>> UpdateClientSecretDetail(string? applicationId, string? clientSecretId, string? clientSecretDetail, CancellationToken cancellationToken);
 }

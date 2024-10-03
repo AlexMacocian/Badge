@@ -3,6 +3,7 @@ using Badge.Filters;
 using Badge.Models;
 using Badge.Services.Applications;
 using Badge.Services.Applications.Models;
+using Microsoft.AspNetCore.Mvc;
 using Net.Sdk.Web;
 using System.Core.Extensions;
 
@@ -28,7 +29,7 @@ public sealed class ClientSecretController
             return await this.applicationService.GetClientSecrets(applicationId, cancellationToken) switch
             {
                 Result<List<ClientSecret>>.Success clientSecrets => Results.Json(
-                    clientSecrets.Result.Select(c => new ClientSecretResponse { Id = c.Id.ToString(), CreationDate = c.CreationDate, ExpirationDate = c.ExpirationDate }).ToList(), SerializationContext.Default),
+                    clientSecrets.Result.Select(c => new ClientSecretResponse { Id = c.Id.ToString(), Detail = c.Detail, CreationDate = c.CreationDate, ExpirationDate = c.ExpirationDate }).ToList(), SerializationContext.Default),
                 Result<List<ClientSecret>>.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.ErrorMessage, statusCode: clientSecretsFailure.ErrorCode),
                 _ => Results.Problem(statusCode: 500)
             };
@@ -47,6 +48,7 @@ public sealed class ClientSecretController
                     Results.Json(new ClientSecretResponseWithPassword
                     {
                         Id = clientSecret.Result.ClientSecret.Id.ToString(),
+                        Detail = clientSecret.Result.ClientSecret.Detail,
                         CreationDate = clientSecret.Result.ClientSecret.CreationDate,
                         ExpirationDate = clientSecret.Result.ClientSecret.ExpirationDate,
                         Password = clientSecret.Result.Password
@@ -64,6 +66,21 @@ public sealed class ClientSecretController
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
         {
             return await this.applicationService.DeleteClientSecret(clientSecretId, applicationId, cancellationToken) switch
+            {
+                Result<bool>.Success => Results.Ok(),
+                Result<bool>.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.ErrorMessage, statusCode: clientSecretsFailure.ErrorCode),
+                _ => Results.Problem(statusCode: 500)
+            };
+        }, cancellationToken);
+    }
+
+    [GeneratePost("{clientSecretId}/detail")]
+    [RouteFilter<AuthenticatedFilter>]
+    public async Task<IResult> UpdateClientSecretDetail(string applicationId, AuthenticatedUser authenticatedUser, string clientSecretId, [FromBody]UpdateClientSecretDetailRequest? request, CancellationToken cancellationToken)
+    {
+        return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
+        {
+            return await this.applicationService.UpdateClientSecretDetail(applicationId, clientSecretId, request?.Detail, cancellationToken) switch
             {
                 Result<bool>.Success => Results.Ok(),
                 Result<bool>.Failure clientSecretsFailure => Results.Problem(detail: clientSecretsFailure.ErrorMessage, statusCode: clientSecretsFailure.ErrorCode),

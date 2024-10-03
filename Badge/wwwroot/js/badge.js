@@ -55,6 +55,34 @@
     }
 
     /**
+     * Update client secret detail
+     * @param {string} clientSecretId
+     * @param {string} applicationId
+     * @param {string} detail
+     * @returns A success result { sucess:true } or a failure { success:false, message:string }
+     */
+    async function updateClientSecretDetail(applicationId, clientSecretId, detail) {
+        try {
+            const response = await fetch("/api/applications/" + applicationId + "/secrets/" + clientSecretId + "/detail", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ detail: detail })
+            });
+
+            if (response.ok) {
+                return { success: true };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.detail || "Client secret detail update failed" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
      * Delete client secret
      * @param {string} clientSecretId
      * @param {string} applicationId
@@ -358,7 +386,8 @@
         getRedirectUris,
         postRedirectUris,
         deleteClientSecret,
-        getApplication
+        getApplication,
+        updateClientSecretDetail
     };
 })();
 
