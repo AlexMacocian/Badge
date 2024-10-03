@@ -38,6 +38,7 @@ public sealed class OAuthController
         var result = await this.oAuth2Service.ValidateOAuth2Request(new OAuthRequest
         {
             Username = authenticatedUser.User.Username,
+            UserId = authenticatedUser.User.Id.ToString(),
             ClientId = request.ClientId,
             ClientSecret = request.ClientSecret,
             State = request.State,
@@ -47,8 +48,8 @@ public sealed class OAuthController
 
         return result switch
         {
-            OAuthValidationResponse.Success success => Results.Json(new AuthorizeResponse { Code = success.Code, State = success.State }, SerializationContext.Default),
-            OAuthValidationResponse.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
+            Result<OAuthValidationResponse>.Success success => Results.Json(new AuthorizeResponse { Code = success.Result.Code, State = success.Result.State }, SerializationContext.Default),
+            Result<OAuthValidationResponse>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
             _ => throw new InvalidOperationException()
         };
     }

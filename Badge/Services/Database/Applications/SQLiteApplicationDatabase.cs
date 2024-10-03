@@ -16,6 +16,7 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
     private const string LogoBase64Key = "logo";
     private const string CreationDateKey = "creationdate";
     private const string RedirectUrisKey = "redirecturis";
+    private const string ScopesKey = "scopes";
 
     private readonly ApplicationDatabaseOptions options;
     private readonly ILogger<SQLiteApplicationDatabase> logger;
@@ -25,7 +26,8 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
 {NameKey} TEXT NOT NULL UNIQUE,
 {LogoBase64Key} TEXT NOT NULL,
 {CreationDateKey} TEXT NOT NULL,
-{RedirectUrisKey} TEXT NOT NULL";
+{RedirectUrisKey} TEXT NOT NULL,
+{ScopesKey} TEXT";
 
     public SQLiteApplicationDatabase(
         IOptions<ApplicationOptions> options,
@@ -121,15 +123,30 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
         }
     }
 
+    public async Task<bool> UpdateScopes(string applicationId, List<string> scopes, CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        try
+        {
+            return await this.UpdateScopesInternal(applicationId, scopes, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            scopedLogger.LogError(ex, "Encountered exception while updating scopes");
+            throw;
+        }
+    }
+
     private async Task<bool> CreateApplicationInternal(Application application, CancellationToken cancellationToken)
     {
-        var query = $"INSERT INTO {this.options.TableName}({IdKey}, {NameKey}, {LogoBase64Key}, {CreationDateKey}, {RedirectUrisKey}) Values (@id, @name, @logo, @creation, @redirectUris)";
+        var query = $"INSERT INTO {this.options.TableName}({IdKey}, {NameKey}, {LogoBase64Key}, {CreationDateKey}, {RedirectUrisKey}, {ScopesKey}) Values (@id, @name, @logo, @creation, @redirectUris, @scopes)";
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@id", application.Id.ToString());
         command.Parameters.AddWithValue("@name", application.Name);
         command.Parameters.AddWithValue("@logo", application.LogoBase64);
         command.Parameters.AddWithValue("@creation", application.CreationDate.ToUniversalTime().ToString(DateTimeFormat));
         command.Parameters.AddWithValue("@redirectUris", JsonSerializer.Serialize(application.RedirectUris, SerializationContext.Default.ListString));
+        command.Parameters.AddWithValue("@scopes", JsonSerializer.Serialize(application.Scopes, SerializationContext.Default.ListString));
 
         var result = await command.ExecuteNonQuery(cancellationToken);
         return result == 1;
@@ -154,7 +171,8 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
             var logo = reader.GetString(2);
             var creationDate = reader.GetDateTime(3);
             var redirectUris = JsonSerializer.Deserialize(reader.GetString(4), SerializationContext.Default.ListString);
-            return new Application(appId, name, logo, creationDate, redirectUris ?? []);
+            var scopes = JsonSerializer.Deserialize(reader.GetString(5), SerializationContext.Default.ListString);
+            return new Application(appId, name, logo, creationDate, redirectUris ?? [], scopes ?? []);
         }
 
         return default;
@@ -179,7 +197,8 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
             var logo = reader.GetString(2);
             var creationDate = reader.GetDateTime(3);
             var redirectUris = JsonSerializer.Deserialize(reader.GetString(4), SerializationContext.Default.ListString);
-            return new Application(appId, readName, logo, creationDate, redirectUris ?? []);
+            var scopes = JsonSerializer.Deserialize(reader.GetString(5), SerializationContext.Default.ListString);
+            return new Application(appId, readName, logo, creationDate, redirectUris ?? [], scopes ?? []);
         }
 
         return default;
@@ -187,12 +206,13 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
 
     private async Task<bool> UpdateApplicationInternal(Application application, CancellationToken cancellationToken)
     {
-        var query = $"UPDATE {this.options.TableName} SET {NameKey} = @name, {LogoBase64Key} = @logo, {RedirectUrisKey} = @redirectUris WHERE {IdKey} = @id";
+        var query = $"UPDATE {this.options.TableName} SET {NameKey} = @name, {LogoBase64Key} = @logo, {RedirectUrisKey} = @redirectUris, {ScopesKey} = @scopes WHERE {IdKey} = @id";
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@id", application.Id);
         command.Parameters.AddWithValue("@name", application.Name);
         command.Parameters.AddWithValue("@logo", application.LogoBase64);
         command.Parameters.AddWithValue("@redirectUris", JsonSerializer.Serialize(application.RedirectUris, SerializationContext.Default.ListString));
+        command.Parameters.AddWithValue("@scopes", JsonSerializer.Serialize(application.Scopes, SerializationContext.Default.ListString));
 
         var result = await command.ExecuteNonQuery(cancellationToken);
         return result == 1;
@@ -215,6 +235,17 @@ public sealed class SQLiteApplicationDatabase : SqliteTableBase<ApplicationDatab
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@id", applicationId);
         command.Parameters.AddWithValue("@redirectUris", JsonSerializer.Serialize(redirectUris, SerializationContext.Default.ListString));
+
+        var result = await command.ExecuteNonQuery(cancellationToken);
+        return result == 1;
+    }
+
+    private async Task<bool> UpdateScopesInternal(string applicationId, List<string> scopes, CancellationToken cancellationToken)
+    {
+        var query = $"UPDATE {this.options.TableName} SET {ScopesKey} = @scopes WHERE {IdKey} = @id";
+        using var command = await this.GetCommand(query, cancellationToken);
+        command.Parameters.AddWithValue("@id", applicationId);
+        command.Parameters.AddWithValue("@scopes", JsonSerializer.Serialize(scopes, SerializationContext.Default.ListString));
 
         var result = await command.ExecuteNonQuery(cancellationToken);
         return result == 1;

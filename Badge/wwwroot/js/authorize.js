@@ -14,12 +14,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const state = urlSearchParams.get("state");
     const redirectUri = urlSearchParams.get("redirect_uri");
     const result = await badge.authorize(clientId, clientSecret, scope, state, redirectUri);
+    const url = new URL(redirectUri);
     if (result.success) {
         const authResult = result.result;
-        const url = new URL(redirectUri);
         url.searchParams.append("code", authResult.code);
         url.searchParams.append("state", authResult.state);
-        window.location.href = url.toString();
-        return;
     }
+    else {
+        url.searchParams.append("result", "failed");
+        url.searchParams.append("state", state);
+    }
+
+    window.location.href = url.toString();
 });

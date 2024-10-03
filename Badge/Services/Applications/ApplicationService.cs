@@ -455,6 +455,38 @@ public sealed class ApplicationService : IApplicationService
         return Result.Failure<bool>(500, "Unexpected error occurred");
     }
 
+    public async Task<Result<bool>> UpdateScopes(string? applicationId, List<string>? scopes, CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
+            applicationIdentifier is null)
+        {
+            return Result.Failure<bool>(400, "Invalid application id");
+        }
+
+        if (scopes is null)
+        {
+            return Result.Failure<bool>(400, "Scopes cannot be null");
+        }
+
+        try
+        {
+            var result = await this.UpdateScopesInternal(applicationIdentifier, scopes, cancellationToken);
+            if (result)
+            {
+                return Result.Success(true);
+            }
+
+            return Result.Failure<bool>(500, "Unexpected error occurred");
+        }
+        catch (Exception e)
+        {
+            scopedLogger.LogError(e, "Encountered exception while updating scopes");
+        }
+
+        return Result.Failure<bool>(500, "Unexpected error occurred");
+    }
+
     private async Task<bool> DeleteClientSecretInternal(ClientSecretIdentifier clientSecretIdentifier, ApplicationIdentifier applicationIdentifier, CancellationToken cancellationToken)
     {
         return await this.clientSecretDatabase.RemoveClientSecret(clientSecretIdentifier, applicationIdentifier, cancellationToken);
@@ -494,7 +526,7 @@ public sealed class ApplicationService : IApplicationService
     private async Task<Application?> CreateApplicationInternal(string applicationName, string? logo, CancellationToken cancellationToken)
     {
         var applicationIdentifier = Identifier.Create<ApplicationIdentifier>();
-        var application = new Application(applicationIdentifier, applicationName, logo ?? string.Empty, DateTime.UtcNow, []);
+        var application = new Application(applicationIdentifier, applicationName, logo ?? string.Empty, DateTime.UtcNow, [], []);
         var result = await this.applicationDatabase.CreateApplication(application, cancellationToken);
         if (!result)
         {
@@ -588,6 +620,12 @@ public sealed class ApplicationService : IApplicationService
     private async Task<bool> UpdateClientSecretDetailInternal(ApplicationIdentifier applicationIdentifier, ClientSecretIdentifier clientSecretIdentifier, string detail, CancellationToken cancellationToken)
     {
         var result = await this.clientSecretDatabase.UpdateClientSecretDetail(clientSecretIdentifier, applicationIdentifier, detail, cancellationToken);
+        return result;
+    }
+
+    private async Task<bool> UpdateScopesInternal(ApplicationIdentifier applicationIdentifier, List<string> scopes, CancellationToken cancellationToken)
+    {
+        var result = await this.applicationDatabase.UpdateScopes(applicationIdentifier.ToString(), scopes, cancellationToken);
         return result;
     }
 }

@@ -10,6 +10,8 @@ public sealed class ApplicationResponse
     public string? Id { get; set; }
     [JsonPropertyName("logoBase64")]
     public string? LogoBase64 { get; set; }
+    [JsonPropertyName("scopes")]
+    public List<string>? Scopes { get; set; }
     [JsonPropertyName("owned")]
     public bool Owned { get; set; }
     [JsonPropertyName("creationDate")]

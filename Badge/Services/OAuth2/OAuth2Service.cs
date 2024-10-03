@@ -1,10 +1,12 @@
 ﻿using Badge.Models;
+using Badge.Models.Identity;
 using Badge.Models.JsonWebKeys;
 using Badge.Options;
+using Badge.Services.Applications;
 using Badge.Services.Certificates;
+using Badge.Services.Database.Applications;
 using Badge.Services.Database.OAuth;
 using Badge.Services.OAuth2.Models;
-using Badge.Services.Users;
 using Microsoft.Extensions.Options;
 using System.Cache;
 using System.Core.Extensions;
@@ -20,21 +22,24 @@ public sealed class OAuth2Service : IOAuth2Service
 {
     private static AsyncValueCache<JsonWebKeySetResponse>? JsonWebKeySets;
 
+    private readonly IApplicationDatabase applicationDatabase;
+    private readonly IApplicationService applicationService;
     private readonly OAuthServiceOptions options;
-    private readonly IUserService userService;
     private readonly IOAuthCodeDatabase oAuthCodeDatabase;
     private readonly ICertificateService certificateService;
     private readonly ILogger<OAuth2Service> logger;
 
     public OAuth2Service(
+        IApplicationDatabase applicationDatabase,
+        IApplicationService applicationService,
         IOptions<OAuthServiceOptions> options,
-        IUserService userService,
         IOAuthCodeDatabase oAuthCodeDatabase,
         ICertificateService certificateService,
         ILogger<OAuth2Service> logger)
     {
+        this.applicationDatabase = applicationDatabase.ThrowIfNull();
+        this.applicationService = applicationService.ThrowIfNull();
         this.options = options.ThrowIfNull().Value;
-        this.userService = userService.ThrowIfNull();
         this.oAuthCodeDatabase = oAuthCodeDatabase.ThrowIfNull();
         this.certificateService = certificateService.ThrowIfNull();
         this.logger = logger.ThrowIfNull();
@@ -62,47 +67,76 @@ public sealed class OAuth2Service : IOAuth2Service
         }
     }
 
-    public async Task<OAuthValidationResponse> ValidateOAuth2Request(OAuthRequest oAuthRequest, CancellationToken cancellationToken)
+    public async Task<Result<OAuthValidationResponse>> ValidateOAuth2Request(OAuthRequest oAuthRequest, CancellationToken cancellationToken)
     {
         if (oAuthRequest.Username is not string username)
         {
-            return new OAuthValidationResponse.Failure { ErrorCode = 401, ErrorMessage = "User needs to be authenticated to perform the OAuth flow" };
+            return Result.Failure<OAuthValidationResponse>(401, "User needs to be authenticated to perform the OAuth flow");
+        }
+
+        if (oAuthRequest.UserId is not string userId)
+        {
+            return Result.Failure<OAuthValidationResponse>(401, "User needs to be authenticated to perform the OAuth flow");
+        }
+
+        if (!Identifier.TryParse<UserIdentifier>(userId, out var userIdentifier) ||
+            userIdentifier is null)
+        {
+            return Result.Failure<OAuthValidationResponse>(500, "User needs is authenticated but could not resolve user id");
         }
 
         if (oAuthRequest.ClientSecret is not string clientSecret)
         {
-            return new OAuthValidationResponse.Failure { ErrorCode = 400, ErrorMessage = "Missing client secret" };
+            return Result.Failure<OAuthValidationResponse>(400, "Missing client secret");
         }
 
         if (oAuthRequest.ClientId is not string clientId)
         {
-            return new OAuthValidationResponse.Failure { ErrorCode = 400, ErrorMessage = "Missing client id" };
+            return Result.Failure<OAuthValidationResponse>(400, "Missing client id");
+        }
+
+        if (!Identifier.TryParse<ApplicationIdentifier>(clientId, out var applicationIdentifier) ||
+            applicationIdentifier is null)
+        {
+            return Result.Failure<OAuthValidationResponse>(400, "Invalid client id");
         }
 
         if (oAuthRequest.Scopes is not string scopes)
         {
-            return new OAuthValidationResponse.Failure { ErrorCode = 400, ErrorMessage = "Missing scopes" };
+            return Result.Failure<OAuthValidationResponse>(400, "Missing scopes");
         }
 
         if (oAuthRequest.RedirectUri is not string redirectUri)
         {
-            return new OAuthValidationResponse.Failure { ErrorCode = 400, ErrorMessage = "Missing redirect uri" };
+            return Result.Failure<OAuthValidationResponse>(400, "Missing redirect uri");
         }
 
         if (oAuthRequest.State is not string state)
         {
-            return new OAuthValidationResponse.Failure { ErrorCode = 400, ErrorMessage = "Missing state" };
+            return Result.Failure<OAuthValidationResponse>(400, "Missing state");
         }
 
         if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out _))
         {
-            return new OAuthValidationResponse.Failure { ErrorCode = 400, ErrorMessage = "Invalid redirect uri" };
+            return Result.Failure<OAuthValidationResponse>(400, "Invalid redirect uri");
         }
 
-        var user = await this.userService.GetUserByUsername(username, cancellationToken);
-        if (user is null)
+        var application = await this.applicationDatabase.GetApplicationById(applicationIdentifier, cancellationToken);
+        if (application is null)
         {
-            return new OAuthValidationResponse.Failure { ErrorCode = 500, ErrorMessage = "Could not find authenticated user" };
+            return Result.Failure<OAuthValidationResponse>(400, $"Unknown client id {applicationIdentifier}");
+        }
+
+        if (application.RedirectUris.None(r => r == redirectUri))
+        {
+            return Result.Failure<OAuthValidationResponse>(400, $"Unknown redirect uri {redirectUri}");
+        }
+
+        var applicationScopes = application.Scopes;
+        var requestedScopes = scopes.Split(' ');
+        if (requestedScopes.FirstOrDefault(scope => !applicationScopes.Contains(scope)) is string unknownScope)
+        {
+            return Result.Failure<OAuthValidationResponse>(400, $"Unknown scope {unknownScope}");
         }
 
         var code = Guid.NewGuid().ToString().Replace("-", "");
@@ -111,11 +145,10 @@ public sealed class OAuth2Service : IOAuth2Service
         var oauthCode = new OAuthCode(code, notBefore, notAfter, username, scopes, redirectUri);
         if (!await this.oAuthCodeDatabase.CreateOAuthCode(oauthCode, cancellationToken))
         {
-            return new OAuthValidationResponse.Failure { ErrorCode = 500, ErrorMessage = "Failed to create oauth code" };
+            return Result.Failure<OAuthValidationResponse>(500, "Failed to create oauth code");
         }
 
-        //TODO: Validate parameters
-        return new OAuthValidationResponse.Success() { Code = code, State = state };
+        return Result.Success(new OAuthValidationResponse(code, state));
     }
 
     private async Task<JsonWebKeySetResponse> GetJsonWebKeySetInternal()
@@ -159,7 +192,7 @@ public sealed class OAuth2Service : IOAuth2Service
         };
     }
 
-    private string GetCurveName(ECCurve curve)
+    private static string GetCurveName(ECCurve curve)
     {
         return curve.Oid.Value switch
         {

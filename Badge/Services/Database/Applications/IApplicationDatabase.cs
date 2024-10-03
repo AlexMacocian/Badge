@@ -11,4 +11,5 @@ public interface IApplicationDatabase
     Task<Application?> GetApplicationById(ApplicationIdentifier id, CancellationToken cancellationToken);
     Task<Application?> GetApplicationByName(string name, CancellationToken cancellationToken);
     Task<bool> UpdateRedirectUris(string applicationId, List<string> redirectUris, CancellationToken cancellationToken);
+    Task<bool> UpdateScopes(string applicationId, List<string> scopes, CancellationToken cancellationToken);
 }

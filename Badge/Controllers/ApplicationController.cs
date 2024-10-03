@@ -33,6 +33,7 @@ public sealed class ApplicationController
             { 
                 Id = a.Application.Id.ToString(),
                 LogoBase64 = a.Application.LogoBase64,
+                Scopes = a.Application.Scopes,
                 Name = a.Application.Name,
                 CreationDate = a.Application.CreationDate,
                 Owned = a.Owned
@@ -55,6 +56,7 @@ public sealed class ApplicationController
                 {
                     Id = foundApplication.Application.Id.ToString(),
                     Name = foundApplication.Application.Name,
+                    Scopes = foundApplication.Application.Scopes,
                     LogoBase64 = foundApplication.Application.LogoBase64,
                     CreationDate = foundApplication.Application.CreationDate,
                     Owned = foundApplication.Owned
@@ -83,6 +85,37 @@ public sealed class ApplicationController
                     Owned = true
                 }),
             Result<Application>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
+            _ => Results.Problem(statusCode: 500)
+        };
+    }
+
+    [GeneratePost("{applicationId}/scopes")]
+    [RouteFilter<AuthenticatedFilter>]
+    public async Task<IResult> UpdateApplicationScopes([FromBody] UpdateApplicationScopesRequest updateApplicationScopesRequest, AuthenticatedUser authenticatedUser, string applicationId, CancellationToken cancellationToken)
+    {
+        return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
+        {
+            return await this.applicationService.UpdateScopes(applicationId, updateApplicationScopesRequest.Scopes, cancellationToken) switch
+            {
+                Result<bool>.Success => Results.Ok(),
+                Result<bool>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
+                _ => Results.Problem(statusCode: 500)
+            };
+        }, cancellationToken);
+    }
+
+    // TODO: Application ownership logic should be moved to ApplicationService
+    private async Task<IResult> ExecuteIfApplicationOwned(string applicationId, AuthenticatedUser authenticatedUser, Func<ApplicationWithRights, Task<IResult>> task, CancellationToken cancellationToken)
+    {
+        var result = await this.applicationService.GetApplicationsByMember(authenticatedUser.User.Id.ToString(), cancellationToken);
+        return result switch
+        {
+            Result<List<ApplicationWithRights>>.Success success => success.Result.FirstOrDefault(app => app.Application.Id.ToString() == applicationId) switch
+            {
+                ApplicationWithRights foundApplication => await task(foundApplication),
+                _ => Results.NotFound()
+            },
+            Result<List<ApplicationWithRights>>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
             _ => Results.Problem(statusCode: 500)
         };
     }

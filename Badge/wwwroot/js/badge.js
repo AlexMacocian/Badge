@@ -2,6 +2,33 @@
     const tokenKey = "jwt_token";
 
     /**
+     * Set the scopes of an owned application
+     * @param {string} applicationId
+     * @param {string[]} scopes
+     * @returns A success result { sucess:true } or a failure { success:false, message:string }
+     */
+    async function postScopes(applicationId, scopes) {
+        try {
+            const response = await fetch("/api/applications/" + applicationId + "/scopes", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ scopes: scopes })
+            });
+
+            if (response.ok) {
+                return { success: true };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.detail || "Failed to post scopes" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
      * Set the redirect uris of an owned application
      * @param {string} applicationId
      * @param {string[]} redirectUris
@@ -387,7 +414,8 @@
         postRedirectUris,
         deleteClientSecret,
         getApplication,
-        updateClientSecretDetail
+        updateClientSecretDetail,
+        postScopes
     };
 })();
 

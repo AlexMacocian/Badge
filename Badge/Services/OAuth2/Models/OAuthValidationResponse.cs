@@ -1,16 +1,7 @@
 ﻿namespace Badge.Services.OAuth2.Models;
 
-public abstract class OAuthValidationResponse
+public sealed class OAuthValidationResponse(string code, string state)
 {
-    public sealed class Success : OAuthValidationResponse
-    {
-        public string? Code { get; set; }
-        public string? State { get; set; }
-    }
-
-    public sealed class Failure : OAuthValidationResponse
-    {
-        public int ErrorCode { get; set; }
-        public string? ErrorMessage { get; set; }
-    }
+    public string Code { get; set; } = code;
+    public string State { get; set; } = state;
 }

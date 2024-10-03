@@ -33,10 +33,33 @@ function getAllRedirectUris() {
     return redirectUris;
 }
 
+function getAllScopes() {
+    const table = document.getElementById("scopesTable");
+    const tbody = table.querySelector("tbody");
+    const scopes = [];
+    tbody.querySelectorAll('td.scope').forEach(cell => {
+        scopes.push(cell.textContent.trim());
+    });
+
+    return scopes;
+}
+
 async function postRedirectUris() {
     const uris = getAllRedirectUris();
     const applicationId = getApplicationId();
     const response = await badge.postRedirectUris(applicationId, uris);
+    if (!response.success) {
+        showError(response.message);
+    }
+    else {
+        hideError();
+    }
+}
+
+async function postScopes() {
+    const scopes = getAllScopes();
+    const applicationId = getApplicationId();
+    const response = await badge.postScopes(applicationId, scopes);
     if (!response.success) {
         showError(response.message);
     }
@@ -105,6 +128,38 @@ function addClientSecretRow(clientSecret, tbody) {
     tbody.append(row);
 }
 
+function addScopeRow(scope, tbody) {
+    const row = document.createElement("tr");
+
+    const scopeCell = document.createElement("td");
+    scopeCell.textContent = scope;
+    scopeCell.contentEditable = true;
+    scopeCell.style.minWidth = "200px";
+    scopeCell.classList.add("scope");
+    scopeCell.addEventListener("blur", async function () {
+        row.classList.add("disabled");
+        scopeCell.contentEditable = false;
+        await postScopes();
+        scopeCell.contentEditable = true;
+        row.classList.remove("disabled");
+    });
+
+    row.appendChild(scopeCell);
+
+    const deleteCell = document.createElement("td");
+    const deleteButton = document.createElement("button");
+    deleteButton.textContent = "🗑";
+    deleteButton.addEventListener("click", function () {
+        row.remove();
+        postScopes();
+    });
+
+    deleteCell.appendChild(deleteButton);
+    row.appendChild(deleteCell);
+
+    tbody.append(row);
+}
+
 function addRedirectUriRow(redirectUri, tbody) {
     const row = document.createElement("tr");
 
@@ -135,6 +190,13 @@ function addRedirectUriRow(redirectUri, tbody) {
     row.appendChild(deleteCell);
 
     tbody.append(row);
+}
+
+async function createScopeButtonClicked() {
+    const templateScope = "scope";
+    const scopesTable = document.getElementById("scopesTable");
+    const scopesTableBody = scopesTable.querySelector("tbody");
+    addScopeRow(templateScope, scopesTableBody);
 }
 
 async function createClientSecretButtonClicked(applicationId) {
@@ -177,6 +239,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const secretsTableBody = secretsTable.querySelector("tbody");
     const redirectUrisTable = document.getElementById("redirectUrisTable");
     const redirectUrisTableBody = redirectUrisTable.querySelector("tbody");
+    const scopesTable = document.getElementById("scopesTable");
+    const scopesTableBody = scopesTable.querySelector("tbody");
 
     document.getElementById("createSecretButton").addEventListener("click", async () => {
         await createClientSecretButtonClicked(applicationId);
@@ -184,6 +248,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("createRedirectUriButton").addEventListener("click", async () => {
         await createRedirectUriButtonClicked(applicationId);
+    });
+
+    document.getElementById("createScopeButton").addEventListener("click", async () => {
+        await createScopeButtonClicked(applicationId);
     });
 
     var secretsResponse = await badge.getClientSecrets(applicationId);
@@ -203,8 +271,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
+    applicationResponse.application.scopes.forEach(scope => {
+        addScopeRow(scope, scopesTableBody);
+    })
+
     hideError();
     redirectsResponse.redirectUris.forEach(redirectUri => {
-        addRedirectUriRow(redirectUri, redirectUrisTableBody)
+        addRedirectUriRow(redirectUri, redirectUrisTableBody);
     });
 });
