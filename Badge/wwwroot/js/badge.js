@@ -2,6 +2,31 @@
     const tokenKey = "jwt_token";
 
     /**
+     * Returns the openId configuration document
+     * @returns A success result { sucess:true, config: {} } or a failure { success:false, message:string }
+     */
+    async function getOpenIdConfiguration() {
+        try {
+            const response = await fetch("/api/oauth/.well-known/openid-configuration", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (response.ok) {
+                const openIdDoc = await response.json();
+                return { success: true, config: openIdDoc };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.detail || "Failed to post scopes" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
      * Set the scopes of an owned application
      * @param {string} applicationId
      * @param {string[]} scopes
@@ -415,7 +440,8 @@
         deleteClientSecret,
         getApplication,
         updateClientSecretDetail,
-        postScopes
+        postScopes,
+        getOpenIdConfiguration
     };
 })();
 

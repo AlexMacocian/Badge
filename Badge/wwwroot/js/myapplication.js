@@ -279,4 +279,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     redirectsResponse.redirectUris.forEach(redirectUri => {
         addRedirectUriRow(redirectUri, redirectUrisTableBody);
     });
+
+    const openIdConfigResponse = await badge.getOpenIdConfiguration();
+    if (!openIdConfigResponse.success) {
+        showError(openIdConfigResponse.message);
+        return;
+    }
+
+    const supportedScopes = openIdConfigResponse.config.scopes_supported;
+    const supportedScopesHost = document.getElementById("supportedScopes");
+    supportedScopesHost.textContent = supportedScopes.join(", ");
 });
