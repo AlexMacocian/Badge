@@ -8,6 +8,7 @@ public interface IApplicationService
     Task<Result<Application>> CreateApplication(string? applicationName, string? ownerId, string? logo, CancellationToken cancellationToken);
     Task<Result<CreateClientSecretResponse>> CreateClientSecret(string? applicationId, CancellationToken cancellationToken);
     Task<Result<List<ClientSecret>>> GetClientSecrets(string? applicationId, CancellationToken cancellationToken);
+    Task<Result<ApplicationDetails>> GetApplicationDetails(string? applicationId, CancellationToken cancellationToken);
     Task<Result<bool>> DeleteClientSecret(string? clientSecretId, string? ownerApplicationId, CancellationToken cancellationToken);
     Task<Result<List<Application>>> GetApplicationsByOwner(string? ownerId, CancellationToken cancellationToken);
     Task<Result<List<ApplicationWithRights>>> GetApplicationsByMember(string? memberId, CancellationToken cancellationToken);

@@ -2,6 +2,31 @@
     const tokenKey = "jwt_token";
 
     /**
+     * Requests scopes
+     * @returns An success result { sucess:true, scopes:[] } or a failure { success:false, message:string }
+     */
+    async function getScopes() {
+        try {
+            const response = await fetch("/api/oauth/scopes", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (response.ok) {
+                const scopes = await response.json();
+                return { success: true, scopes: scopes };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.detail || "Fetch scopes failed" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
      * Returns the openId configuration document
      * @returns A success result { sucess:true, config: {} } or a failure { success:false, message:string }
      */
@@ -239,6 +264,32 @@
     }
 
     /**
+     * Get application details of an application registered under current user
+     * @param {string} applicationId 
+     * @returns A success result { sucess:true, applications: [] } or a failure { success:false, message:string }
+     */
+    async function getApplicationInfo(applicationId) {
+        try {
+            const response = await fetch("/api/applications/" + applicationId + "/info", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+
+            if (response.ok) {
+                const application = await response.json();
+                return { success: true, application: application };
+            } else {
+                const error = await response.json();
+                return { success: false, message: error.detail || "Fetch application failed" };
+            }
+        } catch (error) {
+            return { success: false, message: "An error occurred. Please try again." };
+        }
+    }
+
+    /**
      * Get a list of applications registered under current user
      * @returns A success result { sucess:true, applications: [] } or a failure { success:false, message:string }
      */
@@ -443,7 +494,9 @@
         getApplication,
         updateClientSecretDetail,
         postScopes,
-        getOpenIdConfiguration
+        getOpenIdConfiguration,
+        getApplicationInfo,
+        getScopes
     };
 })();
 

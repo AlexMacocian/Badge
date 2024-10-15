@@ -20,6 +20,7 @@ namespace Badge;
 [JsonSerializable(typeof(AuthorizeRequest))]
 [JsonSerializable(typeof(CreateApplicationRequest))]
 [JsonSerializable(typeof(ApplicationResponse))]
+[JsonSerializable(typeof(ApplicationDetailsResponse))]
 [JsonSerializable(typeof(List<ApplicationResponse>))]
 [JsonSerializable(typeof(ClientSecretResponse))]
 [JsonSerializable(typeof(List<ClientSecretResponse>))]
@@ -27,6 +28,8 @@ namespace Badge;
 [JsonSerializable(typeof(UpdateClientSecretDetailRequest))]
 [JsonSerializable(typeof(UpdateApplicationScopesRequest))]
 [JsonSerializable(typeof(OAuthDiscoveryDocument))]
+[JsonSerializable(typeof(OAuthScope))]
+[JsonSerializable(typeof(IEnumerable<OAuthScopeResponse>))]
 public partial class SerializationContext : JsonSerializerContext
 {
 }

@@ -43,6 +43,23 @@ public sealed class ApplicationController
         };
     }
 
+    [GenerateGet("{applicationId}/info")]
+    public async Task<IResult> GetApplicationInfo(string applicationId, CancellationToken cancellationToken)
+    {
+        var result = await this.applicationService.GetApplicationDetails(applicationId, cancellationToken);
+        return result switch
+        {
+            Result<ApplicationDetails>.Success success => Results.Json(new ApplicationDetailsResponse
+            {
+                Id = success.Result.Id.ToString(),
+                LogoBase64 = success.Result.LogoBase64,
+                Name = success.Result.Name
+            }, SerializationContext.Default),
+            Result<ApplicationDetails>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
+            _ => Results.Problem(statusCode: 500)
+        };
+    }
+
     [GenerateGet("{applicationId}")]
     [RouteFilter<AuthenticatedFilter>]
     public async Task<IResult> GetApplication(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)

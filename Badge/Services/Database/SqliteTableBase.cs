@@ -6,7 +6,7 @@ using System.Extensions;
 
 namespace Badge.Services.Database;
 
-public abstract class SqliteTableBase<TOptions> : IDisposable
+public abstract class SqliteTableBase<TOptions>
     where TOptions : class, IDatabaseOptions, new()
 {
     public const string DateTimeFormat = "yyyy-MM-dd HH:mm:ss.fff";
@@ -54,11 +54,6 @@ public abstract class SqliteTableBase<TOptions> : IDisposable
 
         var command = new SQLiteCommand(query, this.connection);
         return new SQLiteCommandWrapper(command, this.databaseOptions.TableName!, this.logger);
-    }
-
-    public void Dispose()
-    {
-        this.connection.Dispose();
     }
 
     private async Task EnsureTableExists(CancellationToken cancellationToken)

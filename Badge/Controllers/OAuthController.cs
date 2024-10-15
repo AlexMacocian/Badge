@@ -38,6 +38,13 @@ public sealed class OAuthController
         return Results.Json(keySet, SerializationContext.Default);
     }
 
+    [GenerateGet("scopes")]
+    public Task<IResult> GetOauthScopes()
+    {
+        var scopes = this.oAuth2Service.GetOAuthScopes();
+        return Task.FromResult(Results.Json(scopes.Select(s => new OAuthScopeResponse { Description = s.Description, Name = s.Name }), SerializationContext.Default));
+    }
+
     [GeneratePost("authorize")]
     [RouteFilter<AuthenticatedFilter>]
     public async Task<IResult> Authorize(AuthenticatedUser authenticatedUser, [FromBody] AuthorizeRequest request, CancellationToken cancellationToken)

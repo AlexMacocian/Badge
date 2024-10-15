@@ -75,3 +75,21 @@ tr.disabled {
     opacity: 0.5;
     pointer-events: none; /* Prevents interaction */
 }
+
+.modal {
+    display: block;
+    text-align: center;
+}
+
+    .modal button{
+        font-size: x-large;
+        margin: 10px;
+    }
+
+.hidden {
+    display: none;
+}
+
+#scopesList{
+    list-style-position: inside;
+}

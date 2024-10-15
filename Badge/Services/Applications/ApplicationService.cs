@@ -207,6 +207,33 @@ public sealed class ApplicationService : IApplicationService
         return Result.Failure<Application>(500, "Unexpected error occurred");
     }
 
+    public async Task<Result<ApplicationDetails>> GetApplicationDetails(string? applicationId, CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        if (!Identifier.TryParse<ApplicationIdentifier>(applicationId, out var applicationIdentifier) ||
+            applicationIdentifier is null)
+        {
+            return Result.Failure<ApplicationDetails>(400, "Invalid application id");
+        }
+
+        try
+        {
+            var result = await this.GetApplicationDetailsInternal(applicationIdentifier, cancellationToken);
+            if (result is not null)
+            {
+                return Result.Success(result);
+            }
+
+            return Result.Failure<ApplicationDetails>(500, "Unexpected error occurred");
+        }
+        catch (Exception e)
+        {
+            scopedLogger.LogError(e, "Encountered exception while getting application by id");
+        }
+
+        return Result.Failure<ApplicationDetails>(500, "Unexpected error occurred");
+    }
+
     public async Task<Result<bool>> UpdateLogo(string? applicationId, string? logo, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
@@ -545,6 +572,22 @@ public sealed class ApplicationService : IApplicationService
 
         var result = await this.applicationDatabase.UpdateLogo(applicationId.ToString(), logo, cancellationToken);
         return result;
+    }
+
+    private async Task<ApplicationDetails?> GetApplicationDetailsInternal(ApplicationIdentifier applicationId, CancellationToken cancellationToken)
+    {
+        if (applicationId is null)
+        {
+            return default;
+        }
+
+        var result = await this.applicationDatabase.GetApplicationById(applicationId, cancellationToken);
+        if (result is null)
+        {
+            return default;
+        }
+
+        return new ApplicationDetails(result.Id, result.Name, result.LogoBase64);
     }
 
     private async Task<bool> AssignOwnerInternal(ApplicationIdentifier applicationId, UserIdentifier ownerId, CancellationToken cancellationToken)

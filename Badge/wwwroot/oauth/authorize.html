@@ -12,9 +12,19 @@
     <div id="header"></div>
 
     <main>
-        <div class="header">
+        <div class="modal" id="landingModal">
             <h1>Welcome to Badge</h1>
-            <h2 id="WelcomeHeader"></h2>
+        </div>
+
+        <div class="modal hidden" id="confirmationModal">
+            <p>Do you want to allow <b id="applicationNamePlaceholder"></b> to gain access to your information?</p>
+            <p>Application will be granted the following:</p>
+            <ul id="scopesList">
+            </ul>
+            <div>
+                <button id="yesButton">Yes</button>
+                <button id="noButton">No</button>
+            </div>
         </div>
     </main>
     

@@ -144,6 +144,11 @@ public sealed class OAuth2Service : IOAuth2Service
         
     }
 
+    public IEnumerable<OAuthScope> GetOAuthScopes()
+    {
+        return this.options.ScopesSupported?.ToList() ?? Enumerable.Empty<OAuthScope>();
+    }
+
     private async Task<Result<OAuthResponse>> GetOAuthCode(string username, string scopes, string redirectUri, string state, CancellationToken cancellationToken)
     {
         var code = Guid.NewGuid().ToString().Replace("-", "");
