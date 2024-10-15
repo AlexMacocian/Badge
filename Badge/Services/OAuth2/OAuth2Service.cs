@@ -27,7 +27,7 @@ public sealed class OAuth2Service : IOAuth2Service
     private readonly IApplicationDatabase applicationDatabase;
     private readonly IApplicationService applicationService;
     private readonly OAuthServiceOptions options;
-    private readonly IOAuthTokenDatabase oAuthCodeDatabase;
+    private readonly IOAuthCodeDatabase oAuthCodeDatabase;
     private readonly ICertificateService certificateService;
     private readonly ILogger<OAuth2Service> logger;
 
@@ -36,7 +36,7 @@ public sealed class OAuth2Service : IOAuth2Service
         IApplicationDatabase applicationDatabase,
         IApplicationService applicationService,
         IOptions<OAuthServiceOptions> options,
-        IOAuthTokenDatabase oAuthCodeDatabase,
+        IOAuthCodeDatabase oAuthCodeDatabase,
         ICertificateService certificateService,
         ILogger<OAuth2Service> logger)
     {
@@ -81,10 +81,16 @@ public sealed class OAuth2Service : IOAuth2Service
 
         var response = oAuthRequest.ResponseType switch
         {
-            "token" => await this.GetOAuthToken(
+            "code" => await this.GetOAuthCode(
                 oAuthRequest.Username ?? throw new InvalidOperationException(),
                 oAuthRequest.Scopes ?? throw new InvalidOperationException(),
                 oAuthRequest.RedirectUri ?? throw new InvalidOperationException(),
+                oAuthRequest.State ?? throw new InvalidOperationException(),
+                cancellationToken),
+            "token" => await this.GetOAuthToken(
+                oAuthRequest.Username ?? throw new InvalidOperationException(),
+                oAuthRequest.ClientId ?? throw new InvalidOperationException(),
+                oAuthRequest.Scopes ?? throw new InvalidOperationException(),
                 oAuthRequest.State ?? throw new InvalidOperationException(),
                 cancellationToken),
             _ => Result.Failure<OAuthResponse>(400, $"Invalid response type {oAuthRequest.ResponseType}")
@@ -112,7 +118,7 @@ public sealed class OAuth2Service : IOAuth2Service
                     return Result.Failure<OAuthResponse>(500, $"Failed to generate openid token");
                 }
 
-                responseSuccess.Result.OpenId = openIdToken.Token;
+                responseSuccess.Result.IdToken = openIdToken.Token;
             }
 
         }
@@ -138,18 +144,29 @@ public sealed class OAuth2Service : IOAuth2Service
         
     }
 
-    private async Task<Result<OAuthResponse>> GetOAuthToken(string username, string scopes, string redirectUri, string state, CancellationToken cancellationToken)
+    private async Task<Result<OAuthResponse>> GetOAuthCode(string username, string scopes, string redirectUri, string state, CancellationToken cancellationToken)
     {
-        var token = Guid.NewGuid().ToString().Replace("-", "");
+        var code = Guid.NewGuid().ToString().Replace("-", "");
         var notBefore = DateTime.Now;
         var notAfter = notBefore + this.options.AuthCodeDuration;
-        var oauthCode = new OAuthToken(token, notBefore, notAfter, username, scopes, redirectUri);
-        if (!await this.oAuthCodeDatabase.CreateOAuthToken(oauthCode, cancellationToken))
+        var oauthCode = new OAuthCode(code, notBefore, notAfter, username, scopes, redirectUri);
+        if (!await this.oAuthCodeDatabase.CreateOAuthCode(oauthCode, cancellationToken))
         {
             return Result.Failure<OAuthResponse>(500, "Failed to create oauth code");
         }
 
-        return Result.Success<OAuthResponse>(new OAuthResponse.OAuthTokenResponse(token, state));
+        return Result.Success<OAuthResponse>(new OAuthResponse.OAuthCodeResponse(code, state));
+    }
+
+    private async Task<Result<OAuthResponse>> GetOAuthToken(string username, string clientId, string scopes, string state, CancellationToken cancellationToken)
+    {
+        var token = await this.jWTService.GetOAuthToken(username, clientId, scopes, cancellationToken);
+        if (token is null)
+        {
+            return Result.Failure<OAuthResponse>(500, "Failed to create oauth token");
+        }
+
+        return Result.Success<OAuthResponse>(new OAuthResponse.OAuthTokenResponse(token.Token, token.ValidTo, state));
     }
 
     private async Task<Result<bool>> ValidateRequest(OAuthRequest oAuthRequest, CancellationToken cancellationToken)

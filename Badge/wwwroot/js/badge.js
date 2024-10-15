@@ -390,9 +390,11 @@
      * @param {string} scope
      * @param {string} state
      * @param {string} redirectUri
+     * @param {string} responseType
+     * @param {string?} nonce
      * @returns Code to be used in OAuth flow to generate a token
      */
-    async function authorize(clientId, clientSecret, scope, state, redirectUri) {
+    async function authorize(clientId, clientSecret, scope, state, redirectUri, responseType, nonce) {
         try {
             
             
@@ -401,7 +403,7 @@
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ clientId: clientId, clientSecret: clientSecret, scope: scope, state: state, redirectUri: redirectUri })
+                body: JSON.stringify({ clientId: clientId, clientSecret: clientSecret, scope: scope, state: state, redirectUri: redirectUri, responseType: responseType, nonce: nonce })
             });
 
             if (response.ok) {

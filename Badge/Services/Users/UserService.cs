@@ -29,7 +29,6 @@ public sealed class UserService : IUserService
     public async Task<JwtToken?> Login(string? username, string? password, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger(flowIdentifier: username ?? string.Empty);
-        scopedLogger.LogInformation("Authenticating user");
         if (username is null)
         {
             scopedLogger.LogInformation("Username is null");
@@ -68,7 +67,6 @@ public sealed class UserService : IUserService
     public async Task<JwtToken?> CreateUser(string? username, string? password, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger(flowIdentifier: username ?? string.Empty);
-        scopedLogger.LogInformation("Creating user");
         if (username is null)
         {
             scopedLogger.LogInformation("Username is null");
@@ -141,7 +139,6 @@ public sealed class UserService : IUserService
     public async Task<User?> GetUserByUsername(string? username, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger(flowIdentifier: username ?? string.Empty);
-        scopedLogger.LogInformation("Fetching user");
         if (username is null)
         {
             scopedLogger.LogInformation("Username is null");

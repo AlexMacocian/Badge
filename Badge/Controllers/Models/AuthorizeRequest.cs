@@ -16,4 +16,6 @@ public class AuthorizeRequest
     public string? RedirectUri { get; set; }
     [JsonPropertyName("nonce")]
     public string? Nonce { get; set; }
+    [JsonPropertyName("responseType")]
+    public string? ResponseType { get; set; }
 }

@@ -131,7 +131,7 @@ public static class WebApplicationBuilderExtensions
             .ConfigureExtended<OAuthTokenDatabaseOptions>()
             .ConfigureExtended<OAuthServiceOptions>()
             .Services
-                .AddScoped<IOAuthTokenDatabase, SQLiteOAuthTokenDatabase>()
+                .AddScoped<IOAuthCodeDatabase, SQLiteOAuthCodeDatabase>()
                 .AddScoped<IOAuth2Service, OAuth2Service>();
 
         return builder;

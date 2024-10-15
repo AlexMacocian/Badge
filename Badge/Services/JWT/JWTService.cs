@@ -99,7 +99,7 @@ public sealed class JWTService : IJWTService
                 throw new InvalidOperationException("Unable to get signing certificate");
             }
 
-            var signingAlgorithm = privateKey.SignatureAlgorithm;
+            var signingAlgorithm = signingKey.SignatureAlgorithm.FriendlyName;
             if (signingAlgorithm is null)
             {
                 throw new InvalidOperationException("Signing certificate does not have a valid hashing algorithm");
@@ -107,10 +107,10 @@ public sealed class JWTService : IJWTService
 
             var rsa = signingAlgorithm switch
             {
-                "SHA512" => (HashAlgorithm)SHA512.Create(),
-                "SHA384" => (HashAlgorithm)SHA384.Create(),
-                "SHA245" => (HashAlgorithm)SHA256.Create(),
-                "SHA1" => (HashAlgorithm)SHA1.Create(),
+                "sha512RSA" => (HashAlgorithm)SHA512.Create(),
+                "sha384RSA" => (HashAlgorithm)SHA384.Create(),
+                "sha245RSA" => (HashAlgorithm)SHA256.Create(),
+                "sha1RSA" => (HashAlgorithm)SHA1.Create(),
                 _ => throw new InvalidOperationException($"Unsupported hashing algorithm {signingAlgorithm}")
             };
 

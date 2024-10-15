@@ -51,6 +51,7 @@ public sealed class OAuthController
             State = request.State,
             RedirectUri = request.RedirectUri,
             Scopes = request.Scope,
+            ResponseType = request.ResponseType,
             Nonce = request.Nonce
         }, cancellationToken);
 
