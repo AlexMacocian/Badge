@@ -6,6 +6,8 @@ using System.Text.Json.Serialization;
 
 namespace Badge;
 
+[JsonSerializable(typeof(List<string>))]
+[JsonSerializable(typeof(Dictionary<string, string>))]
 [JsonSerializable(typeof(StatusResponse))]
 [JsonSerializable(typeof(ProblemDetails))]
 [JsonSerializable(typeof(JsonWebKeySetResponse))]
@@ -16,14 +18,12 @@ namespace Badge;
 [JsonSerializable(typeof(UsernameWithPassword))]
 [JsonSerializable(typeof(UserDetails))]
 [JsonSerializable(typeof(AuthorizeRequest))]
-[JsonSerializable(typeof(AuthorizeResponse))]
 [JsonSerializable(typeof(CreateApplicationRequest))]
 [JsonSerializable(typeof(ApplicationResponse))]
 [JsonSerializable(typeof(List<ApplicationResponse>))]
 [JsonSerializable(typeof(ClientSecretResponse))]
 [JsonSerializable(typeof(List<ClientSecretResponse>))]
 [JsonSerializable(typeof(ClientSecretResponseWithPassword))]
-[JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(UpdateClientSecretDetailRequest))]
 [JsonSerializable(typeof(UpdateApplicationScopesRequest))]
 [JsonSerializable(typeof(OAuthDiscoveryDocument))]

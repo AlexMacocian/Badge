@@ -27,7 +27,7 @@ public sealed class OAuth2Service : IOAuth2Service
     private readonly IApplicationDatabase applicationDatabase;
     private readonly IApplicationService applicationService;
     private readonly OAuthServiceOptions options;
-    private readonly IOAuthCodeDatabase oAuthCodeDatabase;
+    private readonly IOAuthTokenDatabase oAuthCodeDatabase;
     private readonly ICertificateService certificateService;
     private readonly ILogger<OAuth2Service> logger;
 
@@ -36,7 +36,7 @@ public sealed class OAuth2Service : IOAuth2Service
         IApplicationDatabase applicationDatabase,
         IApplicationService applicationService,
         IOptions<OAuthServiceOptions> options,
-        IOAuthCodeDatabase oAuthCodeDatabase,
+        IOAuthTokenDatabase oAuthCodeDatabase,
         ICertificateService certificateService,
         ILogger<OAuth2Service> logger)
     {
@@ -71,108 +71,168 @@ public sealed class OAuth2Service : IOAuth2Service
         }
     }
 
-    public async Task<Result<OAuthValidationResponse>> ValidateOAuth2Request(OAuthRequest oAuthRequest, CancellationToken cancellationToken)
+    public async Task<Result<OAuthResponse>> GetAuthorization(OAuthRequest oAuthRequest, CancellationToken cancellationToken)
     {
-        if (oAuthRequest.Username is not string username)
+        var validation = await this.ValidateRequest(oAuthRequest, cancellationToken);
+        if (validation is Result<bool>.Failure validationFailure)
         {
-            return Result.Failure<OAuthValidationResponse>(401, "User needs to be authenticated to perform the OAuth flow");
+            return Result.Failure<OAuthResponse>(errorCode: validationFailure.ErrorCode, errorMessage: validationFailure.ErrorMessage);
         }
 
-        if (oAuthRequest.UserId is not string userId)
+        var response = oAuthRequest.ResponseType switch
         {
-            return Result.Failure<OAuthValidationResponse>(401, "User needs to be authenticated to perform the OAuth flow");
+            "token" => await this.GetOAuthToken(
+                oAuthRequest.Username ?? throw new InvalidOperationException(),
+                oAuthRequest.Scopes ?? throw new InvalidOperationException(),
+                oAuthRequest.RedirectUri ?? throw new InvalidOperationException(),
+                oAuthRequest.State ?? throw new InvalidOperationException(),
+                cancellationToken),
+            _ => Result.Failure<OAuthResponse>(400, $"Invalid response type {oAuthRequest.ResponseType}")
+        };
+
+        if (response is Result<OAuthResponse>.Success responseSuccess &&
+            oAuthRequest.Scopes?.Split(' ').Contains("openid") is true)
+        {
+            if (oAuthRequest.Nonce is null)
+            {
+                return Result.Failure<OAuthResponse>(400, $"Missing nonce");
+            }
+
+            if (responseSuccess.Result is OAuthResponse.OAuthTokenResponse tokenResponse)
+            {
+                var openIdToken = await this.jWTService.GetOpenIDToken(
+                    oAuthRequest.UserId ?? throw new InvalidOperationException(),
+                    oAuthRequest.ClientId ?? throw new InvalidOperationException(),
+                    oAuthRequest.Scopes,
+                    oAuthRequest.Nonce,
+                    tokenResponse.Token,
+                    cancellationToken);
+                if (openIdToken is null)
+                {
+                    return Result.Failure<OAuthResponse>(500, $"Failed to generate openid token");
+                }
+
+                responseSuccess.Result.OpenId = openIdToken.Token;
+            }
+
         }
 
-        if (!Identifier.TryParse<UserIdentifier>(userId, out var userIdentifier) ||
-            userIdentifier is null)
-        {
-            return Result.Failure<OAuthValidationResponse>(500, "User needs is authenticated but could not resolve user id");
-        }
-
-        if (oAuthRequest.ClientSecret is not string clientSecret)
-        {
-            return Result.Failure<OAuthValidationResponse>(400, "Missing client secret");
-        }
-
-        if (oAuthRequest.ClientId is not string clientId)
-        {
-            return Result.Failure<OAuthValidationResponse>(400, "Missing client id");
-        }
-
-        if (!Identifier.TryParse<ApplicationIdentifier>(clientId, out var applicationIdentifier) ||
-            applicationIdentifier is null)
-        {
-            return Result.Failure<OAuthValidationResponse>(400, "Invalid client id");
-        }
-
-        if (oAuthRequest.Scopes is not string scopes)
-        {
-            return Result.Failure<OAuthValidationResponse>(400, "Missing scopes");
-        }
-
-        if (oAuthRequest.RedirectUri is not string redirectUri)
-        {
-            return Result.Failure<OAuthValidationResponse>(400, "Missing redirect uri");
-        }
-
-        if (oAuthRequest.State is not string state)
-        {
-            return Result.Failure<OAuthValidationResponse>(400, "Missing state");
-        }
-
-        if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out _))
-        {
-            return Result.Failure<OAuthValidationResponse>(400, "Invalid redirect uri");
-        }
-
-        var application = await this.applicationDatabase.GetApplicationById(applicationIdentifier, cancellationToken);
-        if (application is null)
-        {
-            return Result.Failure<OAuthValidationResponse>(400, $"Unknown client id {applicationIdentifier}");
-        }
-
-        if (application.RedirectUris.None(r => r == redirectUri))
-        {
-            return Result.Failure<OAuthValidationResponse>(400, $"Unknown redirect uri {redirectUri}");
-        }
-
-        var applicationScopes = application.Scopes;
-        var requestedScopes = scopes.Split(' ');
-
-        // Ensure that the requested scopes are both whitelisted in the application and supported by the service
-        if (requestedScopes.FirstOrDefault(scope => !applicationScopes.Contains(scope) || this.options.ScopesSupported?.Contains(scope) is false) is string unknownScope)
-        {
-            return Result.Failure<OAuthValidationResponse>(400, $"Unknown scope {unknownScope}");
-        }
-
-        var code = Guid.NewGuid().ToString().Replace("-", "");
-        var notBefore = DateTime.Now;
-        var notAfter = notBefore + this.options.AuthCodeDuration;
-        var oauthCode = new OAuthCode(code, notBefore, notAfter, username, scopes, redirectUri);
-        if (!await this.oAuthCodeDatabase.CreateOAuthCode(oauthCode, cancellationToken))
-        {
-            return Result.Failure<OAuthValidationResponse>(500, "Failed to create oauth code");
-        }
-
-        return Result.Success(new OAuthValidationResponse(code, state));
+        return response;
     }
 
     public Task<OAuthDiscoveryDocument> GetOAuthDiscoveryDocument(CancellationToken cancellationToken)
     {
         return Task.FromResult(new OAuthDiscoveryDocument(
-            this.options.Issuer ?? throw new InvalidOperationException("Issuer is null"),
-            $"{this.options.Issuer}/oauth/authorize",
-            $"{this.options.Issuer}/api/oauth/token",
-            $"{this.options.Issuer}/api/oauth/userinfo",
-            $"{this.options.Issuer}/api/oauth/.well-known/jwks.json",
-            ["code", "token"],
-            ["public"],
-            [this.jWTService.GetSigningAlg()],
-            this.options.ScopesSupported ?? [],
-            ["client_secret_post"],
-            ["authorization_code"],
-            ["sub"]));
+            issuer: this.options.Issuer ?? throw new InvalidOperationException("Issuer is null"),
+            authorizationEndpoint: $"{this.options.Issuer}/oauth/authorize",
+            tokenEndpoint: $"{this.options.Issuer}/api/oauth/token",
+            userInfoEndpoint: $"{this.options.Issuer}/api/oauth/userinfo",
+            jwksUri: $"{this.options.Issuer}/api/oauth/.well-known/jwks.json",
+            responseTypesSupported: ["code", "token"],
+            subjectTypesSupported: ["public"],
+            idTokenSigningAlgValuesSupported: [this.jWTService.GetSigningAlg()],
+            scopesSupported: this.options.ScopesSupported?.Select(s => s.Name).OfType<string>().ToList() ?? [],
+            tokenEndpointAuthMethodsSupported: ["client_secret_post"],
+            grantTypesSupported: ["authorization_code"],
+            claimsSupported: ["sub"]));
         
+    }
+
+    private async Task<Result<OAuthResponse>> GetOAuthToken(string username, string scopes, string redirectUri, string state, CancellationToken cancellationToken)
+    {
+        var token = Guid.NewGuid().ToString().Replace("-", "");
+        var notBefore = DateTime.Now;
+        var notAfter = notBefore + this.options.AuthCodeDuration;
+        var oauthCode = new OAuthToken(token, notBefore, notAfter, username, scopes, redirectUri);
+        if (!await this.oAuthCodeDatabase.CreateOAuthToken(oauthCode, cancellationToken))
+        {
+            return Result.Failure<OAuthResponse>(500, "Failed to create oauth code");
+        }
+
+        return Result.Success<OAuthResponse>(new OAuthResponse.OAuthTokenResponse(token, state));
+    }
+
+    private async Task<Result<bool>> ValidateRequest(OAuthRequest oAuthRequest, CancellationToken cancellationToken)
+    {
+        if (oAuthRequest.Username is not string username)
+        {
+            return Result.Failure<bool>(401, "Authentication missing");
+        }
+
+        if (oAuthRequest.UserId is not string userId)
+        {
+            return Result.Failure<bool>(401, "Authentication missing");
+        }
+
+        if (!Identifier.TryParse<UserIdentifier>(userId, out var userIdentifier) ||
+            userIdentifier is null)
+        {
+            return Result.Failure<bool>(500, "Invalid user id");
+        }
+
+        if (oAuthRequest.ClientSecret is not string clientSecret)
+        {
+            return Result.Failure<bool>(400, "Missing client secret");
+        }
+
+        if (oAuthRequest.ClientId is not string clientId)
+        {
+            return Result.Failure<bool>(400, "Missing client id");
+        }
+
+        if (!Identifier.TryParse<ApplicationIdentifier>(clientId, out var applicationIdentifier) ||
+            applicationIdentifier is null)
+        {
+            return Result.Failure<bool>(400, "Invalid client id");
+        }
+
+        if (oAuthRequest.Scopes is not string scopes)
+        {
+            return Result.Failure<bool>(400, "Missing scopes");
+        }
+
+        if (oAuthRequest.RedirectUri is not string redirectUri)
+        {
+            return Result.Failure<bool>(400, "Missing redirect uri");
+        }
+
+        if (oAuthRequest.State is not string state)
+        {
+            return Result.Failure<bool>(400, "Missing state");
+        }
+
+        if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out _))
+        {
+            return Result.Failure<bool>(400, "Invalid redirect uri");
+        }
+
+        var application = await this.applicationDatabase.GetApplicationById(applicationIdentifier, cancellationToken);
+        if (application is null)
+        {
+            return Result.Failure<bool>(400, $"Unknown client id {applicationIdentifier}");
+        }
+
+        if (application.RedirectUris.None(r => r == redirectUri))
+        {
+            return Result.Failure<bool>(400, $"Unknown redirect uri {redirectUri}");
+        }
+
+        var applicationScopes = application.Scopes;
+        var requestedScopes = scopes.Split(' ');
+
+        // Ensure that the requested scopes are whitelisted in the application scopes
+        if (requestedScopes.FirstOrDefault(scope => !applicationScopes.Contains(scope)) is string unknownScope)
+        {
+            return Result.Failure<bool>(400, $"Unknown scope {unknownScope}");
+        }
+
+        // Ensure that the requested scopes are supported by Badge in configuration
+        if (requestedScopes.FirstOrDefault(scope => this.options.ScopesSupported?.FirstOrDefault(s => s.Name == scope) is null) is string unsupportedScope)
+        {
+            return Result.Failure<bool>(400, $"Unsupported scope {unsupportedScope}. Badge supports the following scopes: {string.Join(", ", this.options.ScopesSupported?.Select(s => s.Name) ?? [])}");
+        }
+
+        return Result.Success(true);
     }
 
     private async Task<JsonWebKeySetResponse> GetJsonWebKeySetInternal()
@@ -182,9 +242,11 @@ public sealed class OAuth2Service : IOAuth2Service
         {
             Keys = certificatePairs.Select(kvp =>
             {
-                var keyDict = new Dictionary<string, string?>();
-                keyDict["kid"] = kvp.Key.ToString();
-                keyDict["use"] = "sig";
+                var keyDict = new Dictionary<string, string?>
+                {
+                    ["kid"] = kvp.Key.ToString(),
+                    ["use"] = "sig"
+                };
 
                 if (kvp.Value.GetRSAPublicKey() is RSA rsa)
                 {

@@ -7,7 +7,7 @@ using System.Extensions.Core;
 
 namespace Badge.Services.Database.OAuth;
 
-public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseOptions>, IOAuthCodeDatabase
+public sealed class SQLiteOAuthTokenDatabase : SqliteTableBase<OAuthTokenDatabaseOptions>, IOAuthTokenDatabase
 {
     private const string CodeKey = "code";
     private const string NotBeforeKey = "notbefore";
@@ -16,8 +16,8 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
     private const string ScopeKey = "scope";
     private const string RedirectUriKey = "redirect";
 
-    private readonly OAuthCodeDatabaseOptions options;
-    private readonly ILogger<SQLiteOAuthCodeDatabase> logger;
+    private readonly OAuthTokenDatabaseOptions options;
+    private readonly ILogger<SQLiteOAuthTokenDatabase> logger;
 
     protected override string TableDefinition => $@"
 {CodeKey} TEXT PRIMARY KEY NOT NULL UNIQUE,
@@ -27,17 +27,17 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
 {ScopeKey} TEXT NOT NULL,
 {RedirectUriKey} TEXT NOT NULL";
 
-    public SQLiteOAuthCodeDatabase(
-        IOptions<OAuthCodeDatabaseOptions> options,
+    public SQLiteOAuthTokenDatabase(
+        IOptions<OAuthTokenDatabaseOptions> options,
         SQLiteConnection sQLiteConnection,
-        ILogger<SQLiteOAuthCodeDatabase> logger)
+        ILogger<SQLiteOAuthTokenDatabase> logger)
         : base(options, sQLiteConnection, logger)
     {
         this.options = options.ThrowIfNull().Value;
         this.logger = logger.ThrowIfNull();
     }
 
-    public async Task<bool> CreateOAuthCode(OAuthCode code, CancellationToken cancellationToken)
+    public async Task<bool> CreateOAuthToken(OAuthToken code, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -51,7 +51,7 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
         }
     }
 
-    public async Task<OAuthCode?> GetOAuthCode(string code, CancellationToken cancellationToken)
+    public async Task<OAuthToken?> GetOAuthToken(string code, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -65,7 +65,7 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
         }
     }
 
-    public async Task DeleteExpiredOAuthCodes(DateTime expiration, CancellationToken cancellationToken)
+    public async Task DeleteExpiredOAuthTokens(DateTime expiration, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -79,7 +79,7 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
         }
     }
 
-    private async Task<bool> CreateOAuthCodeInternal(OAuthCode code, CancellationToken cancellationToken)
+    private async Task<bool> CreateOAuthCodeInternal(OAuthToken code, CancellationToken cancellationToken)
     {
         var query = $"INSERT INTO {options.TableName}({CodeKey}, {NotBeforeKey}, {NotAfterKey}, {UsernameKey}, {ScopeKey}, {RedirectUriKey}) Values (@code, @notBefore, @notAfter, @username, @scope, @redirect)";
         using var command = await this.GetCommand(query, cancellationToken);
@@ -94,7 +94,7 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
         return result == 1;
     }
 
-    private async Task<OAuthCode?> GetOAuthCodeInternal(string code, CancellationToken cancellationToken)
+    private async Task<OAuthToken?> GetOAuthCodeInternal(string code, CancellationToken cancellationToken)
     {
         var query = $"SELECT * FROM {this.options.TableName} WHERE {CodeKey} = '@code'";
         using var command = await this.GetCommand(query, cancellationToken);
@@ -108,7 +108,7 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeDatabaseO
             var username = reader.GetString(3);
             var scope = reader.GetString(4);
             var redirect = reader.GetString(5);
-            return new OAuthCode(oauthCode, notBefore, notAfter, username, scope, redirect);
+            return new OAuthToken(oauthCode, notBefore, notAfter, username, scope, redirect);
         }
 
         return default;

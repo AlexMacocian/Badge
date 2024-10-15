@@ -11,63 +11,65 @@
 <body>
     <div id="header"></div>
 
-    <h1>Application Details</h1>
-    <table id="applicationDetailsTable">
-        <tbody>
-            <tr>
-                <td>Client Name: </td>
-                <td id="applicationNameCell"></td>
-            </tr>
-            <tr>
-                <td>Client Id: </td>
-                <td id="applicationIdCell"></td>
-            </tr>
-        </tbody>
-    </table>
+    <main>
+        <h1>Application Details</h1>
+        <table id="applicationDetailsTable">
+            <tbody>
+                <tr>
+                    <td>Client Name: </td>
+                    <td id="applicationNameCell"></td>
+                </tr>
+                <tr>
+                    <td>Client Id: </td>
+                    <td id="applicationIdCell"></td>
+                </tr>
+            </tbody>
+        </table>
 
-    <h1>Scopes</h1>
-    <h3>
-        <div>Supported Scopes: </div>
-        <div id="supportedScopes"></div>
-    </h3>
-    <table id="scopesTable">
-        <thead>
-            <tr>
-                <th>Scope</th>
-            </tr>
-        </thead>
-        <tbody>
-        </tbody>
-    </table>
-    <button id="createScopeButton">Create new scope</button>
+        <h1>Scopes</h1>
+        <h3>
+            <div>Supported Scopes: </div>
+            <div id="supportedScopes"></div>
+        </h3>
+        <table id="scopesTable">
+            <thead>
+                <tr>
+                    <th>Scope</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        <button id="createScopeButton">Create new scope</button>
 
-    <h1>Redirect URIs</h1>
-    <table id="redirectUrisTable">
-        <thead>
-            <tr>
-                <th>Uri</th>
-            </tr>
-        </thead>
-        <tbody>
-        </tbody>
-    </table>
-    <button id="createRedirectUriButton">Create new redirect uri</button>
+        <h1>Redirect URIs</h1>
+        <table id="redirectUrisTable">
+            <thead>
+                <tr>
+                    <th>Uri</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        <button id="createRedirectUriButton">Create new redirect uri</button>
 
-    <h1>Client secrets</h1>
-    <table id="secretsTable">
-        <thead>
-            <tr>
-                <th>Detail</th>
-                <th>Creation Date</th>
-                <th>Expiration Date</th>
-                <th>Secret</th>
-            </tr>
-        </thead>
-        <tbody>
-        </tbody>
-    </table>
-    <button id="createSecretButton">Create new secret</button>
-    <div id="errorMessage" style="color: red; display: none;"></div>
+        <h1>Client secrets</h1>
+        <table id="secretsTable">
+            <thead>
+                <tr>
+                    <th>Detail</th>
+                    <th>Creation Date</th>
+                    <th>Expiration Date</th>
+                    <th>Secret</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        <button id="createSecretButton">Create new secret</button>
+        <div id="errorMessage" style="color: red; display: none;"></div>
+    </main>
 
     <div id="footer"></div>
 </body>

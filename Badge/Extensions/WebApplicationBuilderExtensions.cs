@@ -128,10 +128,10 @@ public static class WebApplicationBuilderExtensions
     public static WebApplicationBuilder WithAuthorize(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull()
-            .ConfigureExtended<OAuthCodeDatabaseOptions>()
+            .ConfigureExtended<OAuthTokenDatabaseOptions>()
             .ConfigureExtended<OAuthServiceOptions>()
             .Services
-                .AddScoped<IOAuthCodeDatabase, SQLiteOAuthCodeDatabase>()
+                .AddScoped<IOAuthTokenDatabase, SQLiteOAuthTokenDatabase>()
                 .AddScoped<IOAuth2Service, OAuth2Service>();
 
         return builder;

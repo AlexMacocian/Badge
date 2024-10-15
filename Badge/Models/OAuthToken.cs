@@ -1,6 +1,6 @@
 ﻿namespace Badge.Models;
 
-public sealed class OAuthCode(string code, DateTime notBefore, DateTime notAfter, string username, string scope, string redirect)
+public sealed class OAuthToken(string code, DateTime notBefore, DateTime notAfter, string username, string scope, string redirect)
 {
     public string Code { get; } = code;
     public DateTime NotBefore { get; } = notBefore;

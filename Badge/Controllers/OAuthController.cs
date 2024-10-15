@@ -42,7 +42,7 @@ public sealed class OAuthController
     [RouteFilter<AuthenticatedFilter>]
     public async Task<IResult> Authorize(AuthenticatedUser authenticatedUser, [FromBody] AuthorizeRequest request, CancellationToken cancellationToken)
     {
-        var result = await this.oAuth2Service.ValidateOAuth2Request(new OAuthRequest
+        var result = await this.oAuth2Service.GetAuthorization(new OAuthRequest
         {
             Username = authenticatedUser.User.Username,
             UserId = authenticatedUser.User.Id.ToString(),
@@ -50,13 +50,14 @@ public sealed class OAuthController
             ClientSecret = request.ClientSecret,
             State = request.State,
             RedirectUri = request.RedirectUri,
-            Scopes = request.Scope
+            Scopes = request.Scope,
+            Nonce = request.Nonce
         }, cancellationToken);
 
         return result switch
         {
-            Result<OAuthValidationResponse>.Success success => Results.Json(new AuthorizeResponse { Code = success.Result.Code, State = success.Result.State }, SerializationContext.Default),
-            Result<OAuthValidationResponse>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
+            Result<OAuthResponse>.Success success => Results.Json(success.Result.As<Dictionary<string, string>>(), SerializationContext.Default),
+            Result<OAuthResponse>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
             _ => throw new InvalidOperationException()
         };
     }

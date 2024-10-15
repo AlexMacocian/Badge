@@ -21,8 +21,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         url.searchParams.append("state", authResult.state);
     }
     else {
-        url.searchParams.append("result", "failed");
         url.searchParams.append("state", state);
+        url.searchParams.append("result", "failed");
+        url.searchParams.append("reason", result.message);
     }
 
     window.location.href = url.toString();

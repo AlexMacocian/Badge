@@ -7,6 +7,6 @@ namespace Badge.Services.OAuth2;
 public interface IOAuth2Service
 {
     Task<JsonWebKeySetResponse> GetJsonWebKeySet(CancellationToken cancellationToken);
-    Task<Result<OAuthValidationResponse>> ValidateOAuth2Request(OAuthRequest oAuthRequest, CancellationToken cancellationToken);
+    Task<Result<OAuthResponse>> GetAuthorization(OAuthRequest oAuthRequest, CancellationToken cancellationToken);
     Task<OAuthDiscoveryDocument> GetOAuthDiscoveryDocument(CancellationToken cancellationToken);
 }

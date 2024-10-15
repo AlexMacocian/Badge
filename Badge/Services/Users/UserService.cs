@@ -55,7 +55,7 @@ public sealed class UserService : IUserService
             return default;
         }
 
-        var jwtToken = await this.jWTService.GetToken(username, cancellationToken);
+        var jwtToken = await this.jWTService.GetLoginToken(username, cancellationToken);
         if (jwtToken is null)
         {
             scopedLogger.LogInformation("Could not create jwt token");
@@ -95,7 +95,7 @@ public sealed class UserService : IUserService
             return default;
         }
 
-        var jwtToken = await this.jWTService.GetToken(username, cancellationToken);
+        var jwtToken = await this.jWTService.GetLoginToken(username, cancellationToken);
         if (jwtToken is null)
         {
             scopedLogger.LogInformation("Could not create jwt token");
