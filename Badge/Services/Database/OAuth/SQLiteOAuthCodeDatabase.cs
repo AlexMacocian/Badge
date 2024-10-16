@@ -1,4 +1,5 @@
 ﻿using Badge.Models;
+using Badge.Models.Identity;
 using Badge.Options;
 using Microsoft.Extensions.Options;
 using System.Core.Extensions;
@@ -7,7 +8,7 @@ using System.Extensions.Core;
 
 namespace Badge.Services.Database.OAuth;
 
-public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthTokenDatabaseOptions>, IOAuthCodeDatabase
+public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeOptions>, IOAuthCodeDatabase
 {
     private const string CodeKey = "code";
     private const string NotBeforeKey = "notbefore";
@@ -15,8 +16,13 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthTokenDatabase
     private const string UsernameKey = "username";
     private const string ScopeKey = "scope";
     private const string RedirectUriKey = "redirect";
+    private const string CodeChallengeKey = "codechallenge";
+    private const string CodeChallengeMethodKey = "codechallengemethod";
+    private const string ClientIdKey = "clientid";
+    private const string UserIdKey = "userid";
+    private const string StateKey = "state";
 
-    private readonly OAuthTokenDatabaseOptions options;
+    private readonly OAuthCodeOptions options;
     private readonly ILogger<SQLiteOAuthCodeDatabase> logger;
 
     protected override string TableDefinition => $@"
@@ -25,10 +31,15 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthTokenDatabase
 {NotAfterKey} TEXT NOT NULL,
 {UsernameKey} TEXT NOT NULL,
 {ScopeKey} TEXT NOT NULL,
-{RedirectUriKey} TEXT NOT NULL";
+{RedirectUriKey} TEXT NOT NULL,
+{CodeChallengeKey} TEXT NOT NULL,
+{CodeChallengeMethodKey} TEXT NOT NULL,
+{ClientIdKey} TEXT NOT NULL,
+{UserIdKey} TEXT NOT NULL,
+{StateKey} TEXT NOT NULL";
 
     public SQLiteOAuthCodeDatabase(
-        IOptions<OAuthTokenDatabaseOptions> options,
+        IOptions<OAuthCodeOptions> options,
         SQLiteConnection sQLiteConnection,
         ILogger<SQLiteOAuthCodeDatabase> logger)
         : base(options, sQLiteConnection, logger)
@@ -81,7 +92,7 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthTokenDatabase
 
     private async Task<bool> CreateOAuthCodeInternal(OAuthCode code, CancellationToken cancellationToken)
     {
-        var query = $"INSERT INTO {options.TableName}({CodeKey}, {NotBeforeKey}, {NotAfterKey}, {UsernameKey}, {ScopeKey}, {RedirectUriKey}) Values (@code, @notBefore, @notAfter, @username, @scope, @redirect)";
+        var query = $"INSERT INTO {options.TableName}({CodeKey}, {NotBeforeKey}, {NotAfterKey}, {UsernameKey}, {ScopeKey}, {RedirectUriKey}, {CodeChallengeKey}, {CodeChallengeMethodKey}, {ClientIdKey}, {UserIdKey}, {StateKey}) Values (@code, @notBefore, @notAfter, @username, @scope, @redirect, @codeChallenge, @codeChallengeMethod, @clientId, @userId, @state)";
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@code", code.Code);
         command.Parameters.AddWithValue("@notBefore", code.NotBefore.ToUniversalTime().ToString(DateTimeFormat));
@@ -89,6 +100,11 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthTokenDatabase
         command.Parameters.AddWithValue("@username", code.Username);
         command.Parameters.AddWithValue("@scope", code.Scope);
         command.Parameters.AddWithValue("@redirect", code.Redirect);
+        command.Parameters.AddWithValue("@codeChallenge", code.CodeChallenge ?? "none");
+        command.Parameters.AddWithValue("@codeChallengeMethod", code.CodeChallengeMethod);
+        command.Parameters.AddWithValue("@clientId", code.ClientId.ToString());
+        command.Parameters.AddWithValue("@userId", code.UserId.ToString());
+        command.Parameters.AddWithValue("@state", code.State);
 
         var result = await command.ExecuteNonQuery(cancellationToken);
         return result == 1;
@@ -96,7 +112,7 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthTokenDatabase
 
     private async Task<OAuthCode?> GetOAuthCodeInternal(string code, CancellationToken cancellationToken)
     {
-        var query = $"SELECT * FROM {this.options.TableName} WHERE {CodeKey} = '@code'";
+        var query = $"SELECT * FROM {this.options.TableName} WHERE {CodeKey} = @code";
         using var command = await this.GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@code", code);
 
@@ -108,7 +124,24 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthTokenDatabase
             var username = reader.GetString(3);
             var scope = reader.GetString(4);
             var redirect = reader.GetString(5);
-            return new OAuthCode(oauthCode, notBefore, notAfter, username, scope, redirect);
+            var codeChallenge = reader.GetString(6);
+            var state = reader.GetString(10);
+            if (!Enum.TryParse<CodeChallengeMethods>(reader.GetString(7), true, out var codeChallengeMethod))
+            {
+                throw new InvalidOperationException($"Unable to parse {codeChallengeMethod} as {nameof(CodeChallengeMethods)}");
+            }
+
+            if (!Identifier.TryParse<ApplicationIdentifier>(reader.GetString(8), out var clientIdentifier))
+            {
+                return default;
+            }
+
+            if (!Identifier.TryParse<UserIdentifier>(reader.GetString(9), out var userIdentifier))
+            {
+                return default;
+            }
+
+            return new OAuthCode(oauthCode, userIdentifier, clientIdentifier, notBefore, notAfter, username, scope, redirect, codeChallenge, codeChallengeMethod, state);
         }
 
         return default;

@@ -21,7 +21,7 @@ public sealed class ClientSecretController
     }
 
     [GenerateGet]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> GetClientSecrets(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
@@ -37,7 +37,7 @@ public sealed class ClientSecretController
     }
 
     [GeneratePost]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> CreateClientSecret(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
@@ -60,7 +60,7 @@ public sealed class ClientSecretController
     }
 
     [GenerateDelete("{clientSecretId}")]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> DeleteClientSecret(string applicationId, AuthenticatedUser authenticatedUser, string clientSecretId, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
@@ -75,7 +75,7 @@ public sealed class ClientSecretController
     }
 
     [GeneratePost("{clientSecretId}/detail")]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> UpdateClientSecretDetail(string applicationId, AuthenticatedUser authenticatedUser, string clientSecretId, [FromBody]UpdateClientSecretDetailRequest? request, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>

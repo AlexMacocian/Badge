@@ -7,14 +7,18 @@ using Badge.Services.Certificates;
 using Badge.Services.Database.Applications;
 using Badge.Services.Database.OAuth;
 using Badge.Services.JWT;
+using Badge.Services.OAuth2.Handlers;
 using Badge.Services.OAuth2.Models;
+using Badge.Services.Passwords;
 using Microsoft.Extensions.Options;
 using System.Cache;
+using System.Collections;
 using System.Core.Extensions;
 using System.Extensions;
 using System.Extensions.Core;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using Convert = System.Convert;
 
 namespace Badge.Services.OAuth2;
@@ -23,29 +27,35 @@ public sealed class OAuth2Service : IOAuth2Service
 {
     private static AsyncValueCache<JsonWebKeySetResponse>? JsonWebKeySets;
 
+    private readonly IEnumerable<IOAuthRequestHandler> requestHandlers;
     private readonly IJWTService jWTService;
     private readonly IApplicationDatabase applicationDatabase;
     private readonly IApplicationService applicationService;
-    private readonly OAuthServiceOptions options;
     private readonly IOAuthCodeDatabase oAuthCodeDatabase;
     private readonly ICertificateService certificateService;
+    private readonly IPasswordService passwordService;
+    private readonly OAuthServiceOptions options;
     private readonly ILogger<OAuth2Service> logger;
 
     public OAuth2Service(
+        IEnumerable<IOAuthRequestHandler> requestHandlers,
         IJWTService jWTService,
         IApplicationDatabase applicationDatabase,
         IApplicationService applicationService,
-        IOptions<OAuthServiceOptions> options,
         IOAuthCodeDatabase oAuthCodeDatabase,
         ICertificateService certificateService,
+        IPasswordService passwordService,
+        IOptions<OAuthServiceOptions> options,
         ILogger<OAuth2Service> logger)
     {
+        this.requestHandlers = requestHandlers.ThrowIfNull();
         this.jWTService = jWTService.ThrowIfNull();
         this.applicationDatabase = applicationDatabase.ThrowIfNull();
         this.applicationService = applicationService.ThrowIfNull();
-        this.options = options.ThrowIfNull().Value;
         this.oAuthCodeDatabase = oAuthCodeDatabase.ThrowIfNull();
         this.certificateService = certificateService.ThrowIfNull();
+        this.passwordService = passwordService.ThrowIfNull();
+        this.options = options.ThrowIfNull().Value;
         this.logger = logger.ThrowIfNull();
 
         //TODO: Not exactly correct, as there's up to 5 minutes that a new signing key will not be reflected in this cache
@@ -79,51 +89,12 @@ public sealed class OAuth2Service : IOAuth2Service
             return Result.Failure<OAuthResponse>(errorCode: validationFailure.ErrorCode, errorMessage: validationFailure.ErrorMessage);
         }
 
-        var response = oAuthRequest.ResponseType switch
-        {
-            "code" => await this.GetOAuthCode(
-                oAuthRequest.Username ?? throw new InvalidOperationException(),
-                oAuthRequest.Scopes ?? throw new InvalidOperationException(),
-                oAuthRequest.RedirectUri ?? throw new InvalidOperationException(),
-                oAuthRequest.State ?? throw new InvalidOperationException(),
-                cancellationToken),
-            "token" => await this.GetOAuthToken(
-                oAuthRequest.Username ?? throw new InvalidOperationException(),
-                oAuthRequest.ClientId ?? throw new InvalidOperationException(),
-                oAuthRequest.Scopes ?? throw new InvalidOperationException(),
-                oAuthRequest.State ?? throw new InvalidOperationException(),
-                cancellationToken),
-            _ => Result.Failure<OAuthResponse>(400, $"Invalid response type {oAuthRequest.ResponseType}")
-        };
+        return await this.HandleRequest(oAuthRequest, cancellationToken);
+    }
 
-        if (response is Result<OAuthResponse>.Success responseSuccess &&
-            oAuthRequest.Scopes?.Split(' ').Contains("openid") is true)
-        {
-            if (oAuthRequest.Nonce is null)
-            {
-                return Result.Failure<OAuthResponse>(400, $"Missing nonce");
-            }
-
-            if (responseSuccess.Result is OAuthResponse.OAuthTokenResponse tokenResponse)
-            {
-                var openIdToken = await this.jWTService.GetOpenIDToken(
-                    oAuthRequest.UserId ?? throw new InvalidOperationException(),
-                    oAuthRequest.ClientId ?? throw new InvalidOperationException(),
-                    oAuthRequest.Scopes,
-                    oAuthRequest.Nonce,
-                    tokenResponse.Token,
-                    cancellationToken);
-                if (openIdToken is null)
-                {
-                    return Result.Failure<OAuthResponse>(500, $"Failed to generate openid token");
-                }
-
-                responseSuccess.Result.IdToken = openIdToken.Token;
-            }
-
-        }
-
-        return response;
+    public async Task<Result<OAuthResponse>> GetOAuthTokenFromCode(string? code, string? clientId, string? grantType, string? redirectUri, string? codeVerifier, string? nonce, CancellationToken cancellationToken)
+    {
+        return await this.GetOAuthTokenFromCodeInternal(code, clientId, codeVerifier, grantType, redirectUri, nonce, cancellationToken);
     }
 
     public Task<OAuthDiscoveryDocument> GetOAuthDiscoveryDocument(CancellationToken cancellationToken)
@@ -139,9 +110,8 @@ public sealed class OAuth2Service : IOAuth2Service
             idTokenSigningAlgValuesSupported: [this.jWTService.GetSigningAlg()],
             scopesSupported: this.options.ScopesSupported?.Select(s => s.Name).OfType<string>().ToList() ?? [],
             tokenEndpointAuthMethodsSupported: ["client_secret_post"],
-            grantTypesSupported: ["authorization_code"],
+            grantTypesSupported: this.options.GrantTypesSupported ?? [],
             claimsSupported: ["sub"]));
-        
     }
 
     public IEnumerable<OAuthScope> GetOAuthScopes()
@@ -149,29 +119,118 @@ public sealed class OAuth2Service : IOAuth2Service
         return this.options.ScopesSupported?.ToList() ?? Enumerable.Empty<OAuthScope>();
     }
 
-    private async Task<Result<OAuthResponse>> GetOAuthCode(string username, string scopes, string redirectUri, string state, CancellationToken cancellationToken)
+    private async Task<Result<OAuthResponse>> GetOAuthTokenFromCodeInternal(
+        string? code,
+        string? clientId,
+        string? codeVerifier,
+        string? grantType,
+        string? redirectUri,
+        string? nonce,
+        CancellationToken cancellationToken)
     {
-        var code = Guid.NewGuid().ToString().Replace("-", "");
-        var notBefore = DateTime.Now;
-        var notAfter = notBefore + this.options.AuthCodeDuration;
-        var oauthCode = new OAuthCode(code, notBefore, notAfter, username, scopes, redirectUri);
-        if (!await this.oAuthCodeDatabase.CreateOAuthCode(oauthCode, cancellationToken))
+        if (code is null)
         {
-            return Result.Failure<OAuthResponse>(500, "Failed to create oauth code");
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Missing code");
         }
 
-        return Result.Success<OAuthResponse>(new OAuthResponse.OAuthCodeResponse(code, state));
+        if (grantType is not "authorization_code")
+        {
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Grant type unsupported");
+        }
+
+        if (redirectUri is null)
+        {
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Missing redirect uri");
+        }
+
+        var oauthCode = await this.oAuthCodeDatabase.GetOAuthCode(code, cancellationToken);
+        if (oauthCode is null)
+        {
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Invalid code");
+        }
+
+        if (DateTime.UtcNow > oauthCode.NotAfter)
+        {
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Expired code");
+        }
+
+        if (!Identifier.TryParse<ApplicationIdentifier>(clientId, out var parsedIdentifier))
+        {
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Invalid client id");
+        }
+
+        if (parsedIdentifier != oauthCode.ClientId)
+        {
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Provided client id does not match initial client id");
+        }
+
+        if (oauthCode.CodeChallengeMethod is not CodeChallengeMethods.None)
+        {
+            if (codeVerifier is null)
+            {
+                return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Missing code verifier");
+            }
+
+            if (oauthCode.CodeChallengeMethod is CodeChallengeMethods.Plain &&
+                codeVerifier != oauthCode.CodeChallenge)
+            {
+                return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Could not verify code verifier");
+            }
+
+            if (oauthCode.CodeChallengeMethod is CodeChallengeMethods.S256 or CodeChallengeMethods.S384 or CodeChallengeMethods.S512)
+            {
+                var hashAlgorithm = oauthCode.CodeChallengeMethod switch
+                {
+                    CodeChallengeMethods.S256 => (HashAlgorithm)SHA256.Create(),
+                    CodeChallengeMethods.S384 => (HashAlgorithm)SHA384.Create(),
+                    CodeChallengeMethods.S512 => (HashAlgorithm)SHA512.Create(),
+                    _ => throw new InvalidOperationException($"Unknown code challenge method {oauthCode.CodeChallengeMethod}")
+                };
+
+                var verifierBytes = Encoding.UTF8.GetBytes(codeVerifier);
+                var hashedBytes = hashAlgorithm.ComputeHash(verifierBytes, 0, verifierBytes.Length);
+                var verifierString = BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
+                if (verifierString != oauthCode.CodeChallenge)
+                {
+                    return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Could not verify code verifier");
+                }
+            }
+        }
+
+        if (oauthCode.Redirect != redirectUri)
+        {
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Redirect uri does not match expected uri");
+        }
+
+        var oauthRequest = new OAuthRequest
+        {
+            ClientId = clientId,
+            ResponseType = "token",
+            UserId = oauthCode.UserId.ToString(),
+            Username = oauthCode.Username,
+            Scopes = oauthCode.Scope,
+            RedirectUri = oauthCode.Redirect,
+            State = oauthCode.State,
+            Nonce = nonce
+        };
+
+        //TODO: Delete OAuth code after successful usage
+        return await this.HandleRequest(oauthRequest, cancellationToken);
     }
 
-    private async Task<Result<OAuthResponse>> GetOAuthToken(string username, string clientId, string scopes, string state, CancellationToken cancellationToken)
+    private async Task<Result<OAuthResponse>> HandleRequest(OAuthRequest oAuthRequest, CancellationToken cancellationToken)
     {
-        var token = await this.jWTService.GetOAuthToken(username, clientId, scopes, cancellationToken);
-        if (token is null)
+        var responseBuilder = OAuthResponseBuilder.CreateOAuthResponse(oAuthRequest.Scopes.ThrowIfNull(), oAuthRequest.State.ThrowIfNull());
+        foreach (var handler in this.requestHandlers)
         {
-            return Result.Failure<OAuthResponse>(500, "Failed to create oauth token");
+            var result = await handler.Handle(oAuthRequest, responseBuilder, cancellationToken);
+            if (result is Result<bool>.Failure resultFailure)
+            {
+                return new Result<OAuthResponse>.Failure(errorCode: resultFailure.ErrorCode, errorMessage: resultFailure.ErrorMessage);
+            }
         }
 
-        return Result.Success<OAuthResponse>(new OAuthResponse.OAuthTokenResponse(token.Token, token.ValidTo, state));
+        return Result.Success(responseBuilder.Build());
     }
 
     private async Task<Result<bool>> ValidateRequest(OAuthRequest oAuthRequest, CancellationToken cancellationToken)
@@ -252,6 +311,27 @@ public sealed class OAuth2Service : IOAuth2Service
         if (requestedScopes.FirstOrDefault(scope => this.options.ScopesSupported?.FirstOrDefault(s => s.Name == scope) is null) is string unsupportedScope)
         {
             return Result.Failure<bool>(400, $"Unsupported scope {unsupportedScope}. Badge supports the following scopes: {string.Join(", ", this.options.ScopesSupported?.Select(s => s.Name) ?? [])}");
+        }
+
+        var applicationSecretsResult = await this.applicationService.GetClientSecrets(clientId, cancellationToken);
+        if (applicationSecretsResult is Result<List<ClientSecret>>.Failure failure)
+        {
+            return Result.Failure<bool>(failure.ErrorCode, failure.ErrorMessage);
+        }
+
+        var applicationSecrets = applicationSecretsResult.Cast<Result<List<ClientSecret>>.Success>().Result;
+        var validSecret = false;
+        foreach(var secret in applicationSecrets)
+        {
+            if (await this.passwordService.Verify(clientSecret, secret.Hash, cancellationToken))
+            {
+                validSecret = true;
+            }
+        }
+
+        if (!validSecret)
+        {
+            return Result.Failure<bool>(401, "Invalid client secret");
         }
 
         return Result.Success(true);

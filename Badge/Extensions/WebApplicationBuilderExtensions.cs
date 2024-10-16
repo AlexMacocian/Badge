@@ -10,6 +10,7 @@ using Badge.Services.Database.OAuth;
 using Badge.Services.Database.Users;
 using Badge.Services.JWT;
 using Badge.Services.OAuth2;
+using Badge.Services.OAuth2.Handlers;
 using Badge.Services.Passwords;
 using Badge.Services.Passwords.Versions;
 using Badge.Services.Status;
@@ -26,6 +27,14 @@ namespace Badge.Extensions;
 
 public static class WebApplicationBuilderExtensions
 {
+    public static WebApplicationBuilder WithAntiforgery(this WebApplicationBuilder builder)
+    {
+        builder.ThrowIfNull();
+        builder.Services.AddAntiforgery();
+
+        return builder;
+    }
+
     public static WebApplicationBuilder WithApplicationServices(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull();
@@ -46,8 +55,9 @@ public static class WebApplicationBuilderExtensions
     {
         builder.ThrowIfNull();
         builder.ConfigureExtended<UserDatabaseOptions>()
+               .ConfigureExtended<UserServiceOptions>()
                .Services.AddScoped<AuthenticationMiddleware>()
-                        .AddScoped<AuthenticatedFilter>()
+                        .AddScoped<LoginAuthenticatedFilter>()
                         .AddScoped<IUserService, UserService>()
                         .AddScoped<IUserDatabase, SQLiteUserDatabase>();
 
@@ -128,11 +138,19 @@ public static class WebApplicationBuilderExtensions
     public static WebApplicationBuilder WithAuthorize(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull()
-            .ConfigureExtended<OAuthTokenDatabaseOptions>()
             .ConfigureExtended<OAuthServiceOptions>()
+            .ConfigureExtended<OAuthCodeOptions>()
+            .ConfigureExtended<OAuthRefreshTokenOptions>()
+            .ConfigureExtended<OAuthAccessTokenOptions>()
+            .ConfigureExtended<OAuthOpenIdTokenOptions>()
             .Services
                 .AddScoped<IOAuthCodeDatabase, SQLiteOAuthCodeDatabase>()
-                .AddScoped<IOAuth2Service, OAuth2Service>();
+                .AddScoped<IOAuthRefreshTokenDatabase, SQLiteOAuthRefreshTokenDatabase>()
+                .AddScoped<IOAuth2Service, OAuth2Service>()
+                .AddScoped<IOAuthRequestHandler, OAuthCodeRequestHandler>()
+                .AddScoped<IOAuthRequestHandler, OAuthAccessTokenRequestHandler>()
+                .AddScoped<IOAuthRequestHandler, OAuthOpenIdTokenRequestHandler>()
+                .AddScoped<IOAuthRequestHandler, OAuthRefreshTokenRequestHandler>();
 
         return builder;
     }

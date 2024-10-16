@@ -443,9 +443,11 @@
      * @param {string} redirectUri
      * @param {string} responseType
      * @param {string?} nonce
+     * @param {string?} codeChallenge
+     * @param {string?} codeChallengeMethod
      * @returns Code to be used in OAuth flow to generate a token
      */
-    async function authorize(clientId, clientSecret, scope, state, redirectUri, responseType, nonce) {
+    async function authorize(clientId, clientSecret, scope, state, redirectUri, responseType, nonce, codeChallenge, codeChallengeMethod) {
         try {
             
             
@@ -454,7 +456,7 @@
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ clientId: clientId, clientSecret: clientSecret, scope: scope, state: state, redirectUri: redirectUri, responseType: responseType, nonce: nonce })
+                body: JSON.stringify({ clientId: clientId, clientSecret: clientSecret, scope: scope, state: state, redirectUri: redirectUri, responseType: responseType, nonce: nonce, codeChallenge: codeChallenge, codeChallengeMethod: codeChallengeMethod })
             });
 
             if (response.ok) {

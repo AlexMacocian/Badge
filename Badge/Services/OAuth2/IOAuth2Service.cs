@@ -10,4 +10,5 @@ public interface IOAuth2Service
     Task<JsonWebKeySetResponse> GetJsonWebKeySet(CancellationToken cancellationToken);
     Task<Result<OAuthResponse>> GetAuthorization(OAuthRequest oAuthRequest, CancellationToken cancellationToken);
     Task<OAuthDiscoveryDocument> GetOAuthDiscoveryDocument(CancellationToken cancellationToken);
+    Task<Result<OAuthResponse>> GetOAuthTokenFromCode(string? code, string? clientId, string? grantType, string? redirectUri, string? codeVerifier, string? nonce, CancellationToken cancellationToken);
 }

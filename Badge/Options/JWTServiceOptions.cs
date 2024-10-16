@@ -5,7 +5,6 @@ namespace Badge.Options;
 [OptionsName(Name = "JWT")]
 public class JWTServiceOptions
 {
-    public TimeSpan Validity { get; set; } = TimeSpan.FromMinutes(5);
     public string SigningAlgorithm { get; set; } = "RS512";
     public string Issuer { get; set; } = "badge.service";
     public string Audience { get; set; } = "badge.service";

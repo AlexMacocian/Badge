@@ -13,11 +13,11 @@ public sealed class AuthenticationMiddleware : IMiddleware
     private const string JWTCookieKey = "jwt_token";
 
     private readonly IJWTService jWTService;
-    private readonly ILogger<AuthenticatedFilter> logger;
+    private readonly ILogger<LoginAuthenticatedFilter> logger;
 
     public AuthenticationMiddleware(
         IJWTService jWTService,
-        ILogger<AuthenticatedFilter> logger)
+        ILogger<LoginAuthenticatedFilter> logger)
     {
         this.jWTService = jWTService.ThrowIfNull();
         this.logger = logger;

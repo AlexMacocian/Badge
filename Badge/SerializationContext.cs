@@ -1,6 +1,7 @@
 ﻿using Badge.Controllers.Models;
 using Badge.Models;
 using Badge.Models.JsonWebKeys;
+using Badge.Services.OAuth2.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json.Serialization;
 
@@ -30,6 +31,7 @@ namespace Badge;
 [JsonSerializable(typeof(OAuthDiscoveryDocument))]
 [JsonSerializable(typeof(OAuthScope))]
 [JsonSerializable(typeof(IEnumerable<OAuthScopeResponse>))]
+[JsonSerializable(typeof(OAuthResponse))]
 public partial class SerializationContext : JsonSerializerContext
 {
 }

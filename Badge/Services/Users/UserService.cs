@@ -1,7 +1,9 @@
 ﻿using Badge.Models;
+using Badge.Options;
 using Badge.Services.Database.Users;
 using Badge.Services.JWT;
 using Badge.Services.Passwords;
+using Microsoft.Extensions.Options;
 using System.Core.Extensions;
 using System.Extensions.Core;
 
@@ -12,17 +14,20 @@ public sealed class UserService : IUserService
     private readonly IJWTService jWTService;
     private readonly IUserDatabase userDatabase;
     private readonly IPasswordService passwordService;
+    private readonly UserServiceOptions options;
     private readonly ILogger<UserService> logger;
 
     public UserService(
         IJWTService jWTService,
         IUserDatabase userDatabase,
         IPasswordService passwordService,
+        IOptions<UserServiceOptions> options,
         ILogger<UserService> logger)
     {
         this.jWTService = jWTService.ThrowIfNull();
         this.userDatabase = userDatabase.ThrowIfNull();
         this.passwordService = passwordService.ThrowIfNull();
+        this.options = options.ThrowIfNull().Value;
         this.logger = logger.ThrowIfNull();
     }
 
@@ -54,7 +59,7 @@ public sealed class UserService : IUserService
             return default;
         }
 
-        var jwtToken = await this.jWTService.GetLoginToken(username, cancellationToken);
+        var jwtToken = await this.jWTService.GetLoginToken(username, this.options.TokenDuration, cancellationToken);
         if (jwtToken is null)
         {
             scopedLogger.LogInformation("Could not create jwt token");
@@ -93,7 +98,7 @@ public sealed class UserService : IUserService
             return default;
         }
 
-        var jwtToken = await this.jWTService.GetLoginToken(username, cancellationToken);
+        var jwtToken = await this.jWTService.GetLoginToken(username, this.options.TokenDuration, cancellationToken);
         if (jwtToken is null)
         {
             scopedLogger.LogInformation("Could not create jwt token");

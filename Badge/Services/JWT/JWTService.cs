@@ -32,7 +32,7 @@ public sealed class JWTService : IJWTService
         this.logger = logger.ThrowIfNull();
     }
 
-    public async Task<JwtToken?> GetLoginToken(string subjectId, CancellationToken cancellationToken)
+    public async Task<JwtToken?> GetLoginToken(string subjectId, TimeSpan duration, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
@@ -41,10 +41,11 @@ public sealed class JWTService : IJWTService
             {
                 new Claim(JwtRegisteredClaimNames.Sub, subjectId),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(JwtExtendedClaimNames.TokenType, OAuthTokenTypes.LoginToken),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
             };
 
-            return await this.GetTokenFromClaims(claims, cancellationToken);
+            return await this.GetTokenFromClaims(claims, duration, cancellationToken);
         }
         catch(Exception e)
         {
@@ -53,10 +54,11 @@ public sealed class JWTService : IJWTService
         }
     }
 
-    public async Task<JwtToken?> GetOAuthToken(
+    public async Task<JwtToken?> GetAccessToken(
         string subjectId,
         string clientId,
         string scope,
+        TimeSpan duration,
         CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
@@ -67,12 +69,44 @@ public sealed class JWTService : IJWTService
                 new Claim(JwtRegisteredClaimNames.Sub, subjectId),
                 new Claim(JwtRegisteredClaimNames.Aud, clientId),
                 new Claim(JwtRegisteredClaimNames.Iss, this.jwtServiceOptions.Issuer),
-                new Claim("scope", scope),
+                new Claim(JwtExtendedClaimNames.Scope, scope),
+                new Claim(JwtExtendedClaimNames.TokenType, OAuthTokenTypes.AccessToken),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
             };
 
-            return await this.GetTokenFromClaims(claims, cancellationToken);
+            return await this.GetTokenFromClaims(claims, duration, cancellationToken);
+        }
+        catch (Exception e)
+        {
+            scopedLogger.LogError(e, "Encountered exception while getting token");
+            throw;
+        }
+    }
+
+    public async Task<JwtToken?> GetRefreshToken(
+        string subjectId,
+        string clientId,
+        string scope,
+        TimeSpan duration,
+        CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        try
+        {
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, subjectId),
+                new Claim(JwtRegisteredClaimNames.Aud, clientId),
+                new Claim(JwtRegisteredClaimNames.Iss, this.jwtServiceOptions.Issuer),
+                new Claim(JwtExtendedClaimNames.AccessScope, scope),
+                new Claim(JwtExtendedClaimNames.Scope, "offline_access"),
+                new Claim(JwtExtendedClaimNames.TokenType, OAuthTokenTypes.RefreshToken),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
+            };
+
+            return await this.GetTokenFromClaims(claims, duration, cancellationToken);
         }
         catch (Exception e)
         {
@@ -87,6 +121,7 @@ public sealed class JWTService : IJWTService
         string scope,
         string nonce,
         string accessToken,
+        TimeSpan duration,
         CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
@@ -132,12 +167,13 @@ public sealed class JWTService : IJWTService
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
                 new Claim(JwtRegisteredClaimNames.AuthTime, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
-                new Claim("scope", scope),
-                new Claim("nonce", nonce),
-                new Claim("at_hash", tokenHash)
+                new Claim(JwtExtendedClaimNames.Scope, scope),
+                new Claim(JwtExtendedClaimNames.Nonce, nonce),
+                new Claim(JwtExtendedClaimNames.AccessTokenHash, tokenHash),
+                new Claim(JwtExtendedClaimNames.TokenType, OAuthTokenTypes.OpenIdToken)
             };
 
-            return await this.GetTokenFromClaims(claims, cancellationToken);
+            return await this.GetTokenFromClaims(claims, duration, cancellationToken);
         }
         catch (Exception e)
         {
@@ -172,13 +208,13 @@ public sealed class JWTService : IJWTService
         return this.jwtServiceOptions.Issuer;
     }
 
-    private async Task<JwtToken?> GetTokenFromClaims(Claim[] claims, CancellationToken cancellationToken)
+    private async Task<JwtToken?> GetTokenFromClaims(Claim[] claims, TimeSpan duration, CancellationToken cancellationToken)
     {
         var signingKey = await this.certificateService.GetSigningCertificate(cancellationToken);
         var privateKey = signingKey.GetRSAPrivateKey();
         var signingCredentials = new SigningCredentials(new RsaSecurityKey(privateKey), this.jwtServiceOptions.SigningAlgorithm);
 
-        var expires = DateTime.UtcNow.Add(this.jwtServiceOptions.Validity);
+        var expires = DateTime.UtcNow.Add(duration);
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
@@ -228,4 +264,6 @@ public sealed class JWTService : IJWTService
             .Replace('/', '_')
             .Replace("=", "");
     }
+
+    
 }

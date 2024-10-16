@@ -1,50 +1,44 @@
-﻿namespace Badge.Services.OAuth2.Models;
+﻿using System.Text.Json.Serialization;
 
-public abstract class OAuthResponse : Dictionary<string, string>
+namespace Badge.Services.OAuth2.Models;
+
+public sealed class OAuthResponse(
+    string state,
+    string responseType,
+    string scope,
+    int? expiresIn,
+    string? idToken,
+    string? code,
+    string? accessToken,
+    string? tokenType,
+    string? refreshToken)
 {
-    public string State => this["state"];
-    public string ResponseType => this["responseType"];
-    public string IdToken
-    {
-        get => this["idToken"];
-        set
-        {
-            if (!this.ResponseType.StartsWith("id_token"))
-            {
-                this["responseType"] = $"id_token {this.ResponseType}";
-            }
+    [JsonPropertyName("state")]
+    public string State { get; } = state;
+    [JsonPropertyName("response_type")]
+    public string ResponseType { get; } = responseType;
+    [JsonPropertyName("scope")]
+    public string Scope { get; } = scope;
+    [JsonPropertyName("expires_in")]
+    public int? ExpiresIn { get; } = expiresIn;
 
-            this["idToken"] = value;
-        }
-    }
+    [JsonPropertyName("id_token")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? IdToken { get; } = idToken;
 
-    public OAuthResponse(string state, string responseType)
-    {
-        this["state"] = state;
-        this["responseType"] = responseType;
-    }
+    [JsonPropertyName("code")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Code { get; } = code;
+    
 
-    public sealed class OAuthCodeResponse : OAuthResponse
-    {
-        public string Code => this["code"];
-
-        public OAuthCodeResponse(string code, string state) : base(state, "code")
-        {
-            this["code"] = code;
-        }
-    }
-
-    public sealed class OAuthTokenResponse : OAuthResponse
-    {
-        public string Token => this["token"];
-        public string ExpiresIn => this["expiresIn"];
-        public string TokenType => this["tokenType"];
-
-        public OAuthTokenResponse(string token, DateTime expirationDate, string state) : base(state, "token")
-        {
-            this["token"] = token;
-            this["expiresIn"] = ((int)(expirationDate.ToUniversalTime() - DateTime.UtcNow).TotalSeconds).ToString();
-            this["tokenType"] = "Bearer";
-        }
-    }
+    [JsonPropertyName("access_token")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Token { get; } = accessToken;
+    [JsonPropertyName("token_type")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TokenType { get; } = tokenType;
+    
+    [JsonPropertyName("refresh_token")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RefreshToken { get; } = refreshToken;
 }

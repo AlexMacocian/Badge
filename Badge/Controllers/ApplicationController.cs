@@ -23,7 +23,7 @@ public sealed class ApplicationController
     }
 
     [GenerateGet("me")]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> GetApplications(AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         var result = await this.applicationService.GetApplicationsByMember(authenticatedUser.User.Id.ToString(), cancellationToken);
@@ -61,7 +61,7 @@ public sealed class ApplicationController
     }
 
     [GenerateGet("{applicationId}")]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> GetApplication(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         var result = await this.applicationService.GetApplicationsByMember(authenticatedUser.User.Id.ToString(), cancellationToken);
@@ -86,7 +86,7 @@ public sealed class ApplicationController
     }
 
     [GeneratePost("create")]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> CreateApplication([FromBody] CreateApplicationRequest createApplicationRequest, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         var result = await this.applicationService.CreateApplication(createApplicationRequest?.Name, authenticatedUser.User.Id.ToString(), createApplicationRequest?.Base64Logo, cancellationToken);
@@ -107,7 +107,7 @@ public sealed class ApplicationController
     }
 
     [GeneratePost("{applicationId}/scopes")]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> UpdateApplicationScopes([FromBody] UpdateApplicationScopesRequest updateApplicationScopesRequest, AuthenticatedUser authenticatedUser, string applicationId, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>

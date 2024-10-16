@@ -19,7 +19,7 @@ public sealed class RedirectUriController
     }
 
     [GenerateGet]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> GetRedirectUris(AuthenticatedUser authenticatedUser, string applicationId, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, foundApplication =>
@@ -29,7 +29,7 @@ public sealed class RedirectUriController
     }
 
     [GeneratePost]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> PostRedirectUris(AuthenticatedUser authenticatedUser, string applicationId, [FromBody] List<string> redirectUris, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>

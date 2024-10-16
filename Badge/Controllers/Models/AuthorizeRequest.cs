@@ -18,4 +18,8 @@ public class AuthorizeRequest
     public string? Nonce { get; set; }
     [JsonPropertyName("responseType")]
     public string? ResponseType { get; set; }
+    [JsonPropertyName("codeChallenge")]
+    public string? CodeChallenge { get; set; }
+    [JsonPropertyName("codeChallengeMethod")]
+    public string? CodeChallengeMethod { get; set; }
 }

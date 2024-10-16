@@ -1,4 +1,5 @@
 ﻿using System.Core.Extensions;
+using System.Diagnostics.CodeAnalysis;
 using System.Extensions;
 
 namespace Badge.Models.Identity;
@@ -84,7 +85,7 @@ public abstract class Identifier : IEquatable<Identifier>
 
         return typedParsedIdentifier;
     }
-    public static bool TryParse<T>(string? identifier, out T? parsedIdentifier)
+    public static bool TryParse<T>(string? identifier, [NotNullWhen(true)] out T? parsedIdentifier)
         where T : Identifier
     {
         if (TryParse(identifier, out var parsedUntypedIdentifier) is false)
@@ -102,7 +103,7 @@ public abstract class Identifier : IEquatable<Identifier>
         parsedIdentifier = parsedTypedIdentifier;
         return true;
     }
-    public static bool TryParse(string? identifier, out Identifier? parsedIdentifier)
+    public static bool TryParse(string? identifier, [NotNullWhen(true)] out Identifier? parsedIdentifier)
     {
         parsedIdentifier = default;
         if (identifier is null)

@@ -38,34 +38,43 @@ async function performOAuthFlow() {
     const state = urlSearchParams.get("state");
     const redirectUri = urlSearchParams.get("redirect_uri");
     const nonce = urlSearchParams.get("nonce");
+    const codeChallenge = urlSearchParams.get("code_challenge");
+    const codeChallengeMethod = urlSearchParams.get("code_challenge_method");
     var responseType = urlSearchParams.get("response_type");
     if (!responseType) {
         responseType = "code";
     }
 
-    const result = await badge.authorize(clientId, clientSecret, scope, state, redirectUri, responseType, nonce);
+    const result = await badge.authorize(clientId, clientSecret, scope, state, redirectUri, responseType, nonce, codeChallenge, codeChallengeMethod);
     const url = new URL(redirectUri);
     if (result.success) {
         const authResult = result.result;
-        if (authResult.responseType == "code") {
+        if (authResult.response_type == "code") {
             url.searchParams.append("state", authResult.state);
             url.searchParams.append("code", authResult.code);
+            url.searchParams.append("expires_in", authResult.expires_in);
         }
-        else if (authResult.responseType == "token") {
+        else if (authResult.response_type == "token") {
             const fragmentParams = new URLSearchParams();
-            fragmentParams.append("access_token", authResult.token);
-            fragmentParams.append("token_type", authResult.tokenType);
-            fragmentParams.append("expires_in", authResult.expiresIn);
+            fragmentParams.append("access_token", authResult.access_token);
+            fragmentParams.append("token_type", authResult.token_type);
+            fragmentParams.append("expires_in", authResult.expires_in);
             fragmentParams.append("state", authResult.state);
+            if (authResult.refresh_token) {
+                fragmentParams.append("refresh_token", authResult.refresh_token);
+            }
             url.hash = fragmentParams.toString();
         }
-        else if (authResult.responseType == "id_token token") {
+        else if (authResult.response_type == "token id_token") {
             const fragmentParams = new URLSearchParams();
-            fragmentParams.append("id_token", authResult.idToken);
-            fragmentParams.append("access_token", authResult.token);
-            fragmentParams.append("token_type", authResult.tokenType);
-            fragmentParams.append("expires_in", authResult.expiresIn);
+            fragmentParams.append("id_token", authResult.id_token);
+            fragmentParams.append("access_token", authResult.access_token);
+            fragmentParams.append("token_type", authResult.token_type);
+            fragmentParams.append("expires_in", authResult.expires_in);
             fragmentParams.append("state", authResult.state);
+            if (authResult.refresh_token) {
+                fragmentParams.append("refresh_token", authResult.refresh_token);
+            }
             url.hash = fragmentParams.toString();
         }
     }

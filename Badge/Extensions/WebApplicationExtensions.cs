@@ -6,6 +6,13 @@ namespace Badge.Extensions;
 
 public static class WebApplicationExtensions
 {
+    public static WebApplication UseAntiforgeryMiddleware(this WebApplication application)
+    {
+        application.ThrowIfNull();
+        application.UseAntiforgery();
+        return application;
+    }
+
     public static WebApplication RedirectEmptyPathToIndex(this WebApplication webApplication)
     {
         webApplication.ThrowIfNull()

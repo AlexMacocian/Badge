@@ -52,7 +52,7 @@ public sealed class UsersController
     }
 
     [GenerateGet("me")]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public Task<IResult> Me(AuthenticatedUser authenticatedUser)
     {
         return authenticatedUser.User switch

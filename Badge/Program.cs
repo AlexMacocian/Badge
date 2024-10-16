@@ -17,6 +17,7 @@ namespace Badge
 
             builder
                 .WithRoutes()
+                .WithAntiforgery()
                 .WithAppSettings()
                 .WithSerializationContext()
                 .WithSQLiteDatabase()
@@ -38,6 +39,7 @@ namespace Badge
             var app = builder.Build()
                 .RedirectEmptyPathToIndex()
                 .UseWwwRoot()
+                .UseAntiforgeryMiddleware()
                 .UseUserAuthentication()
                 .UseCorrelationVector()
                 .UseIPExtraction()

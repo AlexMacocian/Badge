@@ -19,6 +19,7 @@ public sealed class SQLiteCommandWrapper(
     public async Task<int> ExecuteNonQuery(CancellationToken cancellationToken)
     {
         this.logger.LogInformation("[{fileName}] {tableName} << ExecuteNonQuery", this.command.Connection.FileName, this.tableName);
+        this.logger.LogDebug("[{fileName}] {tableName} << {query}", this.command.Connection.FileName, this.tableName, this.command.CommandText);
         var sw = Stopwatch.StartNew();
         var result = await this.command.ExecuteNonQueryAsync(cancellationToken);
         this.logger.LogInformation("[{fileName}] {tableName} >> {result} [{elapsedMillis} ms]", this.command.Connection.FileName, this.tableName, result, sw.ElapsedMilliseconds);
@@ -28,6 +29,7 @@ public sealed class SQLiteCommandWrapper(
     public async IAsyncEnumerable<DbDataReader> ExecuteReader([EnumeratorCancellation]CancellationToken cancellationToken)
     {
         this.logger.LogInformation("[{fileName}] {tableName} << ExecuteReader", this.command.Connection.FileName, this.tableName);
+        this.logger.LogDebug("[{fileName}] {tableName} << {query}", this.command.Connection.FileName, this.tableName, this.command.CommandText);
         var sw = Stopwatch.StartNew();
         using var reader = await this.command.ExecuteReaderAsync(cancellationToken);
         var count = 0;

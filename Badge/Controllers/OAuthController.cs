@@ -38,6 +38,25 @@ public sealed class OAuthController
         return Results.Json(keySet, SerializationContext.Default);
     }
 
+    [GenerateGet("token")]
+    public async Task<IResult> GetToken(
+        [FromForm(Name = "client_id")] string? clientId,
+        [FromForm(Name = "grant_type")] string? grantType,
+        [FromForm(Name = "code")] string? code,
+        [FromForm(Name = "redirect_uri")] string? redirectUri,
+        [FromForm(Name = "code_verifier")] string? codeVerifier,
+        [FromForm(Name = "nonce")] string? nonce,
+        CancellationToken cancellationToken)
+    {
+        var result = await this.oAuth2Service.GetOAuthTokenFromCode(code, clientId, grantType, redirectUri, codeVerifier, nonce, cancellationToken);
+        return result switch
+        {
+            Result<OAuthResponse>.Success success => Results.Json(success.Result, SerializationContext.Default),
+            Result<OAuthResponse>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
+            _ => throw new InvalidOperationException("Unexpected OAuth response received")
+        };
+    }
+
     [GenerateGet("scopes")]
     public Task<IResult> GetOauthScopes()
     {
@@ -46,7 +65,7 @@ public sealed class OAuthController
     }
 
     [GeneratePost("authorize")]
-    [RouteFilter<AuthenticatedFilter>]
+    [RouteFilter<LoginAuthenticatedFilter>]
     public async Task<IResult> Authorize(AuthenticatedUser authenticatedUser, [FromBody] AuthorizeRequest request, CancellationToken cancellationToken)
     {
         var result = await this.oAuth2Service.GetAuthorization(new OAuthRequest
@@ -59,14 +78,16 @@ public sealed class OAuthController
             RedirectUri = request.RedirectUri,
             Scopes = request.Scope,
             ResponseType = request.ResponseType,
-            Nonce = request.Nonce
+            Nonce = request.Nonce,
+            CodeChallenge = request.CodeChallenge,
+            CodeChallengeMethod = request.CodeChallengeMethod
         }, cancellationToken);
 
         return result switch
         {
-            Result<OAuthResponse>.Success success => Results.Json(success.Result.As<Dictionary<string, string>>(), SerializationContext.Default),
+            Result<OAuthResponse>.Success success => Results.Json(success.Result, SerializationContext.Default),
             Result<OAuthResponse>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
-            _ => throw new InvalidOperationException()
+            _ => throw new InvalidOperationException("Unexpected OAuth response received")
         };
     }
 }

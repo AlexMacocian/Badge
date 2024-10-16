@@ -11,4 +11,6 @@ public sealed class OAuthRequest
     public string? State { get; set;}
     public string? ResponseType { get; set; }
     public string? Nonce { get; set; }
+    public string? CodeChallengeMethod { get; set; }
+    public string? CodeChallenge { get; set; }
 }
