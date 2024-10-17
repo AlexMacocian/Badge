@@ -38,7 +38,7 @@ public sealed class OAuthRefreshTokenRequestHandler : IOAuthRequestHandler
         var scopedLogger = this.logger.CreateScopedLogger();
         try
         {
-            var refreshToken = await this.jWTService.GetRefreshToken(validRequest.UserId.ThrowIfNull(), validRequest.ClientId.ThrowIfNull(), validRequest.Scopes, this.options.Duration, cancellationToken);
+            var refreshToken = await this.jWTService.GetRefreshToken(validRequest.UserId.ThrowIfNull(), validRequest.ClientId.ThrowIfNull(), validRequest.Scopes, validRequest.RedirectUri.ThrowIfNull(), this.options.Duration, cancellationToken);
             if (refreshToken is null)
             {
                 return Result.Failure<bool>(errorCode: 500, errorMessage: "Failed to create refresh token");

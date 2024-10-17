@@ -1,4 +1,5 @@
-﻿using Badge.Models;
+﻿using Badge.Extensions;
+using Badge.Models;
 using Badge.Models.Identity;
 using Badge.Models.JsonWebKeys;
 using Badge.Options;
@@ -10,12 +11,15 @@ using Badge.Services.JWT;
 using Badge.Services.OAuth2.Handlers;
 using Badge.Services.OAuth2.Models;
 using Badge.Services.Passwords;
+using Badge.Services.Users;
 using Microsoft.Extensions.Options;
 using System.Cache;
 using System.Collections;
 using System.Core.Extensions;
 using System.Extensions;
 using System.Extensions.Core;
+using System.Logging;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -28,6 +32,7 @@ public sealed class OAuth2Service : IOAuth2Service
     private static AsyncValueCache<JsonWebKeySetResponse>? JsonWebKeySets;
 
     private readonly IEnumerable<IOAuthRequestHandler> requestHandlers;
+    private readonly IUserService userService;
     private readonly IJWTService jWTService;
     private readonly IApplicationDatabase applicationDatabase;
     private readonly IApplicationService applicationService;
@@ -39,6 +44,7 @@ public sealed class OAuth2Service : IOAuth2Service
 
     public OAuth2Service(
         IEnumerable<IOAuthRequestHandler> requestHandlers,
+        IUserService userService,
         IJWTService jWTService,
         IApplicationDatabase applicationDatabase,
         IApplicationService applicationService,
@@ -49,6 +55,7 @@ public sealed class OAuth2Service : IOAuth2Service
         ILogger<OAuth2Service> logger)
     {
         this.requestHandlers = requestHandlers.ThrowIfNull();
+        this.userService = userService.ThrowIfNull();
         this.jWTService = jWTService.ThrowIfNull();
         this.applicationDatabase = applicationDatabase.ThrowIfNull();
         this.applicationService = applicationService.ThrowIfNull();
@@ -92,9 +99,14 @@ public sealed class OAuth2Service : IOAuth2Service
         return await this.HandleRequest(oAuthRequest, cancellationToken);
     }
 
-    public async Task<Result<OAuthResponse>> GetOAuthTokenFromCode(string? code, string? clientId, string? grantType, string? redirectUri, string? codeVerifier, string? nonce, CancellationToken cancellationToken)
+    public async Task<Result<OAuthResponse>> GetOAuthToken(OAuthTokenRequest request, CancellationToken cancellationToken)
     {
-        return await this.GetOAuthTokenFromCodeInternal(code, clientId, codeVerifier, grantType, redirectUri, nonce, cancellationToken);
+        return request.GrantType switch
+        {
+            "authorization_code" => await this.GetOAuthTokenFromCodeInternal(request, cancellationToken),
+            "refresh_token" => await this.GetOAuthTokenFromRefreshTokenInternal(request, cancellationToken),
+            _ => Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: request.GrantType is null ? "Missing grant type" : $"Unsupported grant type {request.GrantType}")
+        };
     }
 
     public Task<OAuthDiscoveryDocument> GetOAuthDiscoveryDocument(CancellationToken cancellationToken)
@@ -119,35 +131,142 @@ public sealed class OAuth2Service : IOAuth2Service
         return this.options.ScopesSupported?.ToList() ?? Enumerable.Empty<OAuthScope>();
     }
 
-    private async Task<Result<OAuthResponse>> GetOAuthTokenFromCodeInternal(
-        string? code,
-        string? clientId,
-        string? codeVerifier,
-        string? grantType,
-        string? redirectUri,
-        string? nonce,
-        CancellationToken cancellationToken)
+    private async Task<Result<OAuthResponse>> GetOAuthTokenFromRefreshTokenInternal(OAuthTokenRequest request, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
-        if (code is null)
+        var validation = this.ValidateTokenRequest(request);
+        if (validation is Result<bool>.Failure failure)
         {
-            scopedLogger.LogDebug("Missing code");
-            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Missing code");
+            scopedLogger.LogDebug($"Validation failed. Error message: {failure.ErrorMessage}");
+            return Result.Failure<OAuthResponse>(errorCode: failure.ErrorCode, errorMessage: failure.ErrorMessage);
         }
 
-        if (grantType is not "authorization_code")
+        if (request.RefreshToken is null)
         {
-            scopedLogger.LogDebug($"Grant type unsupported. Requested grant type: {grantType}");
-            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Grant type unsupported");
+            scopedLogger.LogDebug("Missing refresh token");
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Missing refresh token");
         }
 
-        if (redirectUri is null)
+        var validIdentity = await this.jWTService.ValidateToken(request.RefreshToken, cancellationToken);
+        if (validIdentity is null)
         {
-            scopedLogger.LogDebug($"Missing redirect uri");
-            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Missing redirect uri");
+            scopedLogger.LogDebug("Invalid refresh token");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Invalid refresh token");
         }
 
-        var oauthCode = await this.oAuthCodeDatabase.GetOAuthCode(code, cancellationToken);
+        var refreshToken = validIdentity.JwtSecurityToken;
+        if (refreshToken.Subject is null ||
+            !Identifier.TryParse<UserIdentifier>(refreshToken.Subject, out var userIdentifier))
+        {
+            scopedLogger.LogError($"Refresh token is valid but could not parse user id {refreshToken.Subject}");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Invalid refresh token");
+        }
+
+        if (refreshToken.Audiences.FirstOrDefault() is null ||
+            !Identifier.TryParse<ApplicationIdentifier>(refreshToken.Audiences.FirstOrDefault(), out var applicationIdentifier))
+        {
+            scopedLogger.LogError($"Refresh token is valid but could not parse client id {refreshToken.Audiences.FirstOrDefault()}");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Invalid refresh token");
+        }
+
+        if (refreshToken.GetClaim(JwtExtendedClaimNames.AccessScope) is not string accessScope)
+        {
+            scopedLogger.LogError($"Refresh token is valid but could not find claim {JwtExtendedClaimNames.AccessScope}");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Invalid refresh token");
+        }
+
+        if (refreshToken.GetClaim(JwtExtendedClaimNames.Scope) is not string refreshTokenScope)
+        {
+            scopedLogger.LogError($"Refresh token is valid but could not find claim {JwtExtendedClaimNames.Scope}");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Invalid refresh token");
+        }
+
+        if (refreshToken.GetClaim(JwtExtendedClaimNames.TokenType) is not string refreshTokenType)
+        {
+            scopedLogger.LogError($"Refresh token is valid but could not find claim {JwtExtendedClaimNames.TokenType}");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Invalid refresh token");
+        }
+
+        if (refreshToken.GetClaim(JwtExtendedClaimNames.RedirectUri) is not string redirectUri)
+        {
+            scopedLogger.LogError($"Refresh token is valid but could not find claim {JwtExtendedClaimNames.RedirectUri}");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Invalid refresh token");
+        }
+
+        if (refreshTokenType is not OAuthTokenTypes.RefreshToken)
+        {
+            scopedLogger.LogError($"Refresh token is valid but not of type {OAuthTokenTypes.RefreshToken}");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Invalid refresh token");
+        }
+
+        var application = await this.applicationDatabase.GetApplicationById(applicationIdentifier, cancellationToken);
+        if (application is null)
+        {
+            scopedLogger.LogError($"Could not find application {applicationIdentifier}");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Invalid refresh token");
+        }
+
+        // Check that all scopes (including offline_access) are enabled on the application
+        if (!accessScope.Split(' ').Append(refreshTokenScope).All(application.Scopes.Contains))
+        {
+            scopedLogger.LogDebug($"Unsupported scopes. Request scopes: {accessScope} {refreshTokenScope}. Application supports: {string.Join(' ', application.Scopes)}");
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "One or more access scopes are no longer supported by the application");
+        }
+
+        // Check the optional scope parameter. If it's provided, check that it's not requesting more than the original. Requesting less is allowed
+        if (request.Scope is not null &&
+            request.Scope.Split(' ').Any(s => !accessScope.Split(' ').Contains(s)))
+        {
+            scopedLogger.LogDebug($"Unsupported scopes. Request scopes: {request.Scope}. Refresh token allows: {accessScope}");
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "One or more requested scopes are not part of the original refresh token scopes");
+        }
+
+        // Ensure that the redirect uri has not changed from original
+        if (request.RedirectUri != redirectUri)
+        {
+            scopedLogger.LogDebug($"Invalid redirect uri. Original redirect uri {request.RedirectUri}");
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Redirect uri does not match original redirect uri");
+        }
+
+        if (!application.RedirectUris.Contains(request.RedirectUri.ThrowIfNull()))
+        {
+            scopedLogger.LogDebug($"Unsupported redirect uri. Request redirect uri: {request.RedirectUri}. Application allows: {string.Join('\n', application.RedirectUris)}");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Unsupported redirect uri");
+        }
+
+        var user = await this.userService.GetUserById(userIdentifier.ToString(), cancellationToken);
+        if (user is null)
+        {
+            scopedLogger.LogError($"Could not find user {userIdentifier}");
+            return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Invalid refresh token");
+        }
+
+        var oauthRequest = new OAuthRequest
+        {
+            ClientId = request.ClientId,
+            ResponseType = "token",
+            UserId = user.Id.ToString(),
+            Username = user.Username,
+            Scopes = request.Scope ?? accessScope.Replace("offline_access", "").Trim(),
+            RedirectUri = request.RedirectUri,
+            State = string.Empty,
+            Nonce = request.Nonce
+        };
+
+        return await this.HandleRequest(oauthRequest, cancellationToken);
+    }
+
+    private async Task<Result<OAuthResponse>> GetOAuthTokenFromCodeInternal(OAuthTokenRequest request, CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        var validation = this.ValidateTokenRequest(request);
+        if (validation is Result<bool>.Failure failure)
+        {
+            scopedLogger.LogDebug($"Validation failed. Error message: {failure.ErrorMessage}");
+            return Result.Failure<OAuthResponse>(errorCode: failure.ErrorCode, errorMessage: failure.ErrorMessage);
+        }
+
+        var oauthCode = await this.oAuthCodeDatabase.GetOAuthCode(request.Code.ThrowIfNull(), cancellationToken);
         if (oauthCode is null)
         {
             scopedLogger.LogDebug($"Provided code is invalid");
@@ -160,19 +279,14 @@ public sealed class OAuth2Service : IOAuth2Service
             return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Expired code");
         }
 
-        if (!Identifier.TryParse<ApplicationIdentifier>(clientId, out var parsedIdentifier))
-        {
-            scopedLogger.LogDebug($"Could not parse client id {clientId}");
-            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Invalid client id");
-        }
-
-        if (parsedIdentifier != oauthCode.ClientId)
+        if (Identifier.TryParse<ApplicationIdentifier>(request.ClientId, out var parsedIdentifier) &&
+            parsedIdentifier != oauthCode.ClientId)
         {
             scopedLogger.LogDebug($"Client id does not match id from oauth code");
             return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Provided client id does not match initial client id");
         }
 
-        if (oauthCode.Redirect != redirectUri)
+        if (oauthCode.Redirect != request.RedirectUri)
         {
             scopedLogger.LogDebug($"Redirect uri does not match uri from oauth code");
             return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Redirect uri does not match expected uri");
@@ -180,14 +294,14 @@ public sealed class OAuth2Service : IOAuth2Service
 
         if (oauthCode.CodeChallengeMethod is not CodeChallengeMethods.None)
         {
-            if (codeVerifier is null)
+            if (request.CodeVerifier is null)
             {
                 scopedLogger.LogDebug($"Code challenge exists but not code verifier was provided");
                 return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Missing code verifier");
             }
 
             if (oauthCode.CodeChallengeMethod is CodeChallengeMethods.Plain &&
-                codeVerifier != oauthCode.CodeChallenge)
+                request.CodeVerifier != oauthCode.CodeChallenge)
             {
                 scopedLogger.LogDebug($"Code verifier failed verification");
                 return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Could not verify code verifier");
@@ -203,7 +317,7 @@ public sealed class OAuth2Service : IOAuth2Service
                     _ => throw new InvalidOperationException($"Unknown code challenge method {oauthCode.CodeChallengeMethod}")
                 };
 
-                var verifierBytes = Encoding.UTF8.GetBytes(codeVerifier);
+                var verifierBytes = Encoding.UTF8.GetBytes(request.CodeVerifier);
                 var hashedBytes = hashAlgorithm.ComputeHash(verifierBytes, 0, verifierBytes.Length);
                 var verifierString = BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
                 if (verifierString != oauthCode.CodeChallenge)
@@ -216,17 +330,17 @@ public sealed class OAuth2Service : IOAuth2Service
 
         var oauthRequest = new OAuthRequest
         {
-            ClientId = clientId,
+            ClientId = request.ClientId,
             ResponseType = "token",
             UserId = oauthCode.UserId.ToString(),
             Username = oauthCode.Username,
             Scopes = oauthCode.Scope,
             RedirectUri = oauthCode.Redirect,
             State = oauthCode.State,
-            Nonce = nonce
+            Nonce = request.Nonce
         };
 
-        if (!await this.oAuthCodeDatabase.ExpireOAuthCode(code, cancellationToken))
+        if (!await this.oAuthCodeDatabase.ExpireOAuthCode(request.Code, cancellationToken))
         {
             scopedLogger.LogError($"Failed to expire OAuth code");
             return Result.Failure<OAuthResponse>(errorCode: 500, errorMessage: "Could not generate token");
@@ -349,6 +463,59 @@ public sealed class OAuth2Service : IOAuth2Service
         if (!validSecret)
         {
             return Result.Failure<bool>(401, "Invalid client secret");
+        }
+
+        return Result.Success(true);
+    }
+
+    private Result<bool> ValidateTokenRequest(OAuthTokenRequest request)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        if (request.GrantType is "authorization_code" &&
+            this.options.GrantTypesSupported?.Contains("authorization_code") is true)
+        {
+            if (request.Code is null)
+            {
+                scopedLogger.LogDebug("Missing code");
+                return Result.Failure<bool>(errorCode: 400, errorMessage: "Missing code");
+            }
+        }
+        else if (request.GrantType is "refresh_token" &&
+            this.options.GrantTypesSupported?.Contains("refresh_token") is true)
+        {
+            if (request.RefreshToken is null)
+            {
+                scopedLogger.LogDebug("Missing refresh_token");
+                return Result.Failure<bool>(errorCode: 400, errorMessage: "Missing refresh_token");
+            }
+        }
+        else
+        {
+            return Result.Failure<bool>(errorCode: 400, errorMessage: $"Unsupported grant type {request.GrantType}");
+        }
+
+        if (request.ClientId is null)
+        {
+            scopedLogger.LogDebug($"Missing client id");
+            return Result.Failure<bool>(errorCode: 400, errorMessage: "Missing client id");
+        }
+
+        if (!Identifier.TryParse<ApplicationIdentifier>(request.ClientId, out var parsedIdentifier))
+        {
+            scopedLogger.LogDebug($"Could not parse client id {request.ClientId}");
+            return Result.Failure<bool>(errorCode: 400, errorMessage: "Invalid client id");
+        }
+
+        if (request.RedirectUri is null)
+        {
+            scopedLogger.LogDebug($"Missing redirect uri");
+            return Result.Failure<bool>(errorCode: 400, errorMessage: "Missing redirect uri");
+        }
+
+        if (!Uri.TryCreate(request.RedirectUri, UriKind.Absolute, out _))
+        {
+            scopedLogger.LogDebug($"Invalid redirect uri");
+            return Result.Failure<bool>(errorCode: 400, errorMessage: "Invalid redirect uri");
         }
 
         return Result.Success(true);

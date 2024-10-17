@@ -1,10 +1,9 @@
 ﻿using Badge.Extensions;
 using Badge.Filters;
+using Badge.Models;
 using Badge.Services.JWT;
-using Microsoft.IdentityModel.Tokens;
 using System.Core.Extensions;
 using System.Extensions.Core;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace Badge.Middleware;
 
@@ -32,22 +31,22 @@ public sealed class AuthenticationMiddleware : IMiddleware
             return;
         }
 
-        var principal = await this.jWTService.ValidateToken(value, context.RequestAborted);
-        if (principal is null)
+        var identity = await this.jWTService.ValidateToken(value, context.RequestAborted);
+        if (identity is null)
         {
             await next(context);
             return;
         }
 
-        if (principal.Identity is not CaseSensitiveClaimsIdentity identity ||
-            identity.SecurityToken is not JwtSecurityToken securityToken)
+        if (identity.JwtSecurityToken.GetClaim(JwtExtendedClaimNames.TokenType) is not OAuthTokenTypes.LoginToken)
         {
+            scopedLogger.LogInformation("Detected valid token but not of login type. Ignoring");
             await next(context);
             return;
         }
 
-        context.User = principal;
-        context.SetSecurityToken(securityToken);
+        context.User = identity.ClaimsPrincipal;
+        context.SetSecurityToken(identity.JwtSecurityToken);
         await next(context);
         return;
     }

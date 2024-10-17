@@ -3,6 +3,7 @@ using Badge.Options;
 using Badge.Services.Certificates;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using System.Cache;
 using System.Core.Extensions;
 using System.Extensions;
 using System.Extensions.Core;
@@ -18,6 +19,7 @@ public sealed class JWTService : IJWTService
 {
     private static readonly JwtSecurityTokenHandler DefaultHandler = new();
 
+    private readonly AsyncValueCache<List<SecurityKey>> securityKeysCache;
     private readonly ICertificateService certificateService;
     private readonly JWTServiceOptions jwtServiceOptions;
     private readonly ILogger<JWTService> logger;
@@ -27,6 +29,7 @@ public sealed class JWTService : IJWTService
         IOptions<JWTServiceOptions> options,
         ILogger<JWTService> logger)
     {
+        this.securityKeysCache = new(this.GetSigngingKeys, TimeSpan.FromMinutes(5));
         this.certificateService = certificateService.ThrowIfNull();
         this.jwtServiceOptions = options.ThrowIfNull().Value;
         this.logger = logger.ThrowIfNull();
@@ -88,6 +91,7 @@ public sealed class JWTService : IJWTService
         string subjectId,
         string clientId,
         string scope,
+        string redirectUri,
         TimeSpan duration,
         CancellationToken cancellationToken)
     {
@@ -102,6 +106,7 @@ public sealed class JWTService : IJWTService
                 new Claim(JwtExtendedClaimNames.AccessScope, scope),
                 new Claim(JwtExtendedClaimNames.Scope, "offline_access"),
                 new Claim(JwtExtendedClaimNames.TokenType, OAuthTokenTypes.RefreshToken),
+                new Claim(JwtExtendedClaimNames.RedirectUri, redirectUri),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
             };
@@ -182,7 +187,7 @@ public sealed class JWTService : IJWTService
         }
     }
 
-    public async Task<ClaimsPrincipal?> ValidateToken(string token, CancellationToken cancellationToken)
+    public async Task<ValidatedIdentity?> ValidateToken(string token, CancellationToken cancellationToken)
     {
         try
         {
@@ -229,18 +234,9 @@ public sealed class JWTService : IJWTService
         return new JwtToken(jwtToken, expires);
     }
 
-    private async Task<ClaimsPrincipal?> ValidateJwtInternal(string token, CancellationToken cancellationToken)
+    private async Task<ValidatedIdentity?> ValidateJwtInternal(string token, CancellationToken _)
     {
-        var keys = new List<SecurityKey>();
-        foreach (var cert in await this.certificateService.GetSigningCertificates(cancellationToken))
-        {
-            var rsa = cert.Value.GetRSAPublicKey();
-            if (rsa is not null)
-            {
-                keys.Add(new RsaSecurityKey(rsa));
-            }
-        }
-
+        var keys = await this.securityKeysCache.GetValue();
         var tokenHandler = new JwtSecurityTokenHandler();
         var tokenValidationParameters = new TokenValidationParameters
         {
@@ -254,7 +250,28 @@ public sealed class JWTService : IJWTService
         };
 
         var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out SecurityToken validatedToken);
-        return principal;
+        if (principal.Identity is not CaseSensitiveClaimsIdentity identity ||
+            identity.SecurityToken is not JwtSecurityToken securityToken)
+        {
+            return default;
+        }
+
+        return new ValidatedIdentity(securityToken, principal);
+    }
+
+    private async Task<List<SecurityKey>> GetSigngingKeys()
+    {
+        var keys = new List<SecurityKey>();
+        foreach (var cert in await this.certificateService.GetSigningCertificates(CancellationToken.None))
+        {
+            var rsa = cert.Value.GetRSAPublicKey();
+            if (rsa is not null)
+            {
+                keys.Add(new RsaSecurityKey(rsa));
+            }
+        }
+
+        return keys;
     }
 
     private static string Base64UrlEncode(byte[] input)
@@ -264,6 +281,4 @@ public sealed class JWTService : IJWTService
             .Replace('/', '_')
             .Replace("=", "");
     }
-
-    
 }

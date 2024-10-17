@@ -1,4 +1,5 @@
 ﻿using Badge.Models;
+using Badge.Models.Identity;
 using Badge.Options;
 using Badge.Services.Database.Users;
 using Badge.Services.JWT;
@@ -117,14 +118,14 @@ public sealed class UserService : IUserService
             return default;
         }
 
-        var claims = await this.jWTService.ValidateToken(token, cancellationToken);
-        if (claims is null)
+        var identity = await this.jWTService.ValidateToken(token, cancellationToken);
+        if (identity is null)
         {
             scopedLogger.LogInformation("Failed to validate token");
             return default;
         }
 
-        var username = claims.Identity?.Name;
+        var username = identity.ClaimsPrincipal.Identity?.Name;
         if (username is null)
         {
             scopedLogger.LogError("No username in token");
@@ -151,6 +152,25 @@ public sealed class UserService : IUserService
         }
 
         var user = await this.userDatabase.GetUser(username, cancellationToken);
+        if (user is null)
+        {
+            scopedLogger.LogInformation("Failed to find user");
+            return default;
+        }
+
+        return user;
+    }
+
+    public async Task<User?> GetUserById(string? userId, CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger(flowIdentifier: userId ?? string.Empty);
+        if (!Identifier.TryParse<UserIdentifier>(userId, out var userIdentifier))
+        {
+            scopedLogger.LogInformation("UserId is invalid");
+            return default;
+        }
+
+        var user = await this.userDatabase.GetUser(userIdentifier, cancellationToken);
         if (user is null)
         {
             scopedLogger.LogInformation("Failed to find user");

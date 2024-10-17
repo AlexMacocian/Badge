@@ -72,6 +72,28 @@ public sealed class SQLiteUserDatabase(IOptions<UserDatabaseOptions> options, SQ
         }
     }
 
+    public async Task<User?> GetUser(UserIdentifier userId, CancellationToken cancellationToken)
+    {
+        var scopedLogger = logger.CreateScopedLogger(flowIdentifier: userId.ToString());
+        try
+        {
+            scopedLogger.LogInformation("Fetching user");
+            var maybeUser = await GetUserInternal(userId, cancellationToken);
+            if (maybeUser is null)
+            {
+                scopedLogger.LogError("User not found");
+                return default;
+            }
+
+            return maybeUser;
+        }
+        catch (Exception ex)
+        {
+            scopedLogger.LogError(ex, "Encountered exception while fetching user");
+            return default;
+        }
+    }
+
     private async Task<User?> CreateUserInternal(string username, string password, CancellationToken cancellationToken)
     {
         var id = Identifier.Create<UserIdentifier>();
@@ -97,6 +119,30 @@ public sealed class SQLiteUserDatabase(IOptions<UserDatabaseOptions> options, SQ
         var query = $"SELECT * FROM {options.TableName} WHERE {UsernameKey} = @username";
         using var command = await GetCommand(query, cancellationToken);
         command.Parameters.AddWithValue("@username", username);
+
+        await foreach (var reader in command.ExecuteReader(cancellationToken))
+        {
+            var id = reader.GetString(0);
+            if (!Identifier.TryParse<UserIdentifier>(id, out var userId) ||
+                userId is null)
+            {
+                continue;
+            }
+
+            return new User(
+                id: userId,
+                username: reader.GetString(1),
+                password: reader.GetString(2));
+        }
+
+        return default;
+    }
+
+    private async Task<User?> GetUserInternal(UserIdentifier userIdentifier, CancellationToken cancellationToken)
+    {
+        var query = $"SELECT * FROM {options.TableName} WHERE {IdKey} = @id";
+        using var command = await GetCommand(query, cancellationToken);
+        command.Parameters.AddWithValue("@id", userIdentifier.ToString());
 
         await foreach (var reader in command.ExecuteReader(cancellationToken))
         {

@@ -46,9 +46,21 @@ public sealed class OAuthController
         [FromForm(Name = "redirect_uri")] string? redirectUri,
         [FromForm(Name = "code_verifier")] string? codeVerifier,
         [FromForm(Name = "nonce")] string? nonce,
+        [FromForm(Name = "refresh_token")] string? refresh_token,
+        [FromForm(Name = "scope")] string? scope,
         CancellationToken cancellationToken)
     {
-        var result = await this.oAuth2Service.GetOAuthTokenFromCode(code, clientId, grantType, redirectUri, codeVerifier, nonce, cancellationToken);
+        var result = await this.oAuth2Service.GetOAuthToken(new OAuthTokenRequest
+        {
+            ClientId = clientId,
+            GrantType = grantType,
+            Code = code,
+            CodeVerifier = codeVerifier,
+            RedirectUri = redirectUri,
+            Nonce = nonce,
+            RefreshToken = refresh_token,
+            Scope = scope
+        }, cancellationToken);
         return result switch
         {
             Result<OAuthResponse>.Success success => Results.Json(success.Result, SerializationContext.Default),
