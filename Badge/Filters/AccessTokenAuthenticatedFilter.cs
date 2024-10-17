@@ -4,7 +4,7 @@ using System.IdentityModel.Tokens.Jwt;
 
 namespace Badge.Filters;
 
-public sealed class LoginAuthenticatedFilter : IEndpointFilter
+public sealed class AccessTokenAuthenticatedFilter : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
@@ -13,7 +13,7 @@ public sealed class LoginAuthenticatedFilter : IEndpointFilter
             return Results.Unauthorized();
         }
 
-        if (token.GetClaim(JwtExtendedClaimNames.TokenType) is not OAuthTokenTypes.LoginToken)
+        if (token.GetClaim(JwtExtendedClaimNames.TokenType) is not OAuthTokenTypes.AccessToken)
         {
             return Results.Unauthorized();
         }

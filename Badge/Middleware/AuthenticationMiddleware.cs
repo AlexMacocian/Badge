@@ -1,9 +1,7 @@
 ﻿using Badge.Extensions;
 using Badge.Filters;
-using Badge.Models;
 using Badge.Services.JWT;
 using System.Core.Extensions;
-using System.Extensions.Core;
 
 namespace Badge.Middleware;
 
@@ -24,23 +22,21 @@ public sealed class AuthenticationMiddleware : IMiddleware
 
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)
     {
-        var scopedLogger = this.logger.CreateScopedLogger();
         if (!context.Request.Cookies.TryGetValue(JWTCookieKey, out var value))
         {
-            await next(context);
-            return;
+            if (context.Request.Headers.Authorization.FirstOrDefault() is not string authHeader ||
+                !authHeader.StartsWith("Bearer "))
+            {
+                await next(context);
+                return;
+            }
+
+            value = authHeader.Replace("Bearer", "").Trim();
         }
 
         var identity = await this.jWTService.ValidateToken(value, context.RequestAborted);
         if (identity is null)
         {
-            await next(context);
-            return;
-        }
-
-        if (identity.JwtSecurityToken.GetClaim(JwtExtendedClaimNames.TokenType) is not OAuthTokenTypes.LoginToken)
-        {
-            scopedLogger.LogInformation("Detected valid token but not of login type. Ignoring");
             await next(context);
             return;
         }

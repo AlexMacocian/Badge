@@ -1,4 +1,5 @@
 ﻿using Badge.Controllers.Models;
+using Badge.Extensions;
 using Badge.Filters;
 using Badge.Models;
 using Badge.Services.OAuth2;
@@ -36,6 +37,20 @@ public sealed class OAuthController
     {
         var keySet = await this.oAuth2Service.GetJsonWebKeySet(cancellationToken);
         return Results.Json(keySet, SerializationContext.Default);
+    }
+
+    [GenerateGet("userinfo")]
+    [RouteFilter<AccessTokenAuthenticatedFilter>]
+    public async Task<IResult> GetUserInfo(HttpContext httpContext, CancellationToken cancellationToken)
+    {
+        var securityToken = httpContext.GetSecurityToken();
+        var result = await this.oAuth2Service.GetUserInfo(securityToken, cancellationToken);
+        return result switch
+        {
+            Result<UserInfoResponse>.Success success => Results.Json(success.Result, SerializationContext.Default),
+            Result<UserInfoResponse>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
+            _ => throw new InvalidOperationException("Unexpected user info response received")
+        };
     }
 
     [GenerateGet("token")]

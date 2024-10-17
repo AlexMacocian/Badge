@@ -14,12 +14,10 @@ using Badge.Services.Passwords;
 using Badge.Services.Users;
 using Microsoft.Extensions.Options;
 using System.Cache;
-using System.Collections;
 using System.Core.Extensions;
 using System.Extensions;
 using System.Extensions.Core;
-using System.Logging;
-using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -67,6 +65,35 @@ public sealed class OAuth2Service : IOAuth2Service
 
         //TODO: Not exactly correct, as there's up to 5 minutes that a new signing key will not be reflected in this cache
         JsonWebKeySets ??= new AsyncValueCache<JsonWebKeySetResponse>(this.GetJsonWebKeySetInternal, this.options.KeySetCacheDuration);
+    }
+
+    public async Task<Result<UserInfoResponse>> GetUserInfo(JwtSecurityToken? requestAccessToken, CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        if (requestAccessToken is null)
+        {
+            scopedLogger.LogDebug("Security token is null");
+            return Result.Failure<UserInfoResponse>(errorCode: 401, errorMessage: "Missing access token");
+        }
+
+        if (requestAccessToken.Subject is not string userId)
+        {
+            scopedLogger.LogError("Could not retrieve user info. No user id in subject field");
+            return Result.Failure<UserInfoResponse>(errorCode: 400, errorMessage: "Invalid access token");
+        }
+
+        var user = await this.userService.GetUserById(userId, cancellationToken);
+        if (user is null)
+        {
+            scopedLogger.LogError("Could not find user by id");
+            return Result.Failure<UserInfoResponse>(errorCode: 500, errorMessage: "Could not resolve user info");
+        }
+
+        return Result.Success(new UserInfoResponse
+        {
+            UserId = user.Id.ToString(),
+            Username = user.Username
+        });
     }
 
     public async Task<JsonWebKeySetResponse> GetJsonWebKeySet(CancellationToken cancellationToken)

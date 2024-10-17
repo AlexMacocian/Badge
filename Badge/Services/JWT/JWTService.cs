@@ -123,6 +123,7 @@ public sealed class JWTService : IJWTService
     public async Task<JwtToken?> GetOpenIDToken(
         string subjectId,
         string clientId,
+        string username,
         string scope,
         string nonce,
         string accessToken,
@@ -168,6 +169,7 @@ public sealed class JWTService : IJWTService
             {
                 new Claim(JwtRegisteredClaimNames.Sub, subjectId),
                 new Claim(JwtRegisteredClaimNames.Aud, clientId),
+                new Claim(JwtRegisteredClaimNames.PreferredUsername, username),
                 new Claim(JwtRegisteredClaimNames.Iss, this.jwtServiceOptions.Issuer),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
@@ -189,16 +191,19 @@ public sealed class JWTService : IJWTService
 
     public async Task<ValidatedIdentity?> ValidateToken(string token, CancellationToken cancellationToken)
     {
+        var scopedLogger = this.logger.CreateScopedLogger();
         try
         {
             return await this.ValidateJwtInternal(token, cancellationToken);
         }
-        catch (SecurityTokenArgumentException)
+        catch (SecurityTokenArgumentException ex)
         {
+            scopedLogger.LogError(ex, "Failed to validate jwt");
             return default;
         }
-        catch (SecurityTokenException)
+        catch (SecurityTokenException ex)
         {
+            scopedLogger.LogError(ex, "Failed to validate jwt");
             return default;
         }
     }
