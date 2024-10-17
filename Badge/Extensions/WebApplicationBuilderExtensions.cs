@@ -30,7 +30,7 @@ public static class WebApplicationBuilderExtensions
     public static WebApplicationBuilder WithAntiforgery(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull();
-        builder.Services.AddAntiforgery();
+        builder.Services.AddAntiforgery(options => options.SuppressXFrameOptionsHeader = true);
 
         return builder;
     }

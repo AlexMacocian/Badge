@@ -10,4 +10,5 @@ public sealed class OAuthTokenRequest
     public string? Nonce { get; set; }
     public string? RefreshToken { get; set; }
     public string? Scope { get; set; }
+    public string? ClientSecret { get; set; }
 }

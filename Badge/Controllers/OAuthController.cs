@@ -53,28 +53,28 @@ public sealed class OAuthController
         };
     }
 
-    [GenerateGet("token")]
+    [GeneratePost("token")]
     public async Task<IResult> GetToken(
-        [FromForm(Name = "client_id")] string? clientId,
-        [FromForm(Name = "grant_type")] string? grantType,
-        [FromForm(Name = "code")] string? code,
-        [FromForm(Name = "redirect_uri")] string? redirectUri,
-        [FromForm(Name = "code_verifier")] string? codeVerifier,
-        [FromForm(Name = "nonce")] string? nonce,
-        [FromForm(Name = "refresh_token")] string? refresh_token,
-        [FromForm(Name = "scope")] string? scope,
+        HttpContext context,
         CancellationToken cancellationToken)
     {
+        var form = await context.Request.ReadFormAsync(cancellationToken);
+        if (form is null)
+        {
+            return Results.Problem(statusCode: 400, detail: "No form payload");
+        }
+
         var result = await this.oAuth2Service.GetOAuthToken(new OAuthTokenRequest
         {
-            ClientId = clientId,
-            GrantType = grantType,
-            Code = code,
-            CodeVerifier = codeVerifier,
-            RedirectUri = redirectUri,
-            Nonce = nonce,
-            RefreshToken = refresh_token,
-            Scope = scope
+            ClientId = form["client_id"].FirstOrDefault(),
+            GrantType = form["grant_type"].FirstOrDefault(),
+            Code = form["code"].FirstOrDefault(),
+            CodeVerifier = form["code_verifier"].FirstOrDefault(),
+            RedirectUri = form["redirect_uri"].FirstOrDefault(),
+            Nonce = form["nonce"].FirstOrDefault(),
+            RefreshToken = form["refresh_token"].FirstOrDefault(),
+            Scope = form["scope"].FirstOrDefault(),
+            ClientSecret = form["client_secret"].FirstOrDefault()
         }, cancellationToken);
         return result switch
         {

@@ -92,6 +92,7 @@ public sealed class JWTService : IJWTService
         string clientId,
         string scope,
         string redirectUri,
+        string clientSecret,
         TimeSpan duration,
         CancellationToken cancellationToken)
     {
@@ -107,6 +108,7 @@ public sealed class JWTService : IJWTService
                 new Claim(JwtExtendedClaimNames.Scope, "offline_access"),
                 new Claim(JwtExtendedClaimNames.TokenType, OAuthTokenTypes.RefreshToken),
                 new Claim(JwtExtendedClaimNames.RedirectUri, redirectUri),
+                new Claim(JwtExtendedClaimNames.ClientSecret, clientSecret),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
             };

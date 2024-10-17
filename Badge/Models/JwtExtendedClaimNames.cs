@@ -8,4 +8,5 @@ public static class JwtExtendedClaimNames
     public const string TokenType = "ttype";
     public const string AccessScope = "ascope";
     public const string RedirectUri = "redirect_uri";
+    public const string ClientSecret = "client_secret";
 }
