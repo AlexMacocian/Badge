@@ -128,52 +128,68 @@ public sealed class OAuth2Service : IOAuth2Service
         string? nonce,
         CancellationToken cancellationToken)
     {
+        var scopedLogger = this.logger.CreateScopedLogger();
         if (code is null)
         {
+            scopedLogger.LogDebug("Missing code");
             return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Missing code");
         }
 
         if (grantType is not "authorization_code")
         {
+            scopedLogger.LogDebug($"Grant type unsupported. Requested grant type: {grantType}");
             return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Grant type unsupported");
         }
 
         if (redirectUri is null)
         {
+            scopedLogger.LogDebug($"Missing redirect uri");
             return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Missing redirect uri");
         }
 
         var oauthCode = await this.oAuthCodeDatabase.GetOAuthCode(code, cancellationToken);
         if (oauthCode is null)
         {
+            scopedLogger.LogDebug($"Provided code is invalid");
             return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Invalid code");
         }
 
         if (DateTime.UtcNow > oauthCode.NotAfter)
         {
+            scopedLogger.LogDebug($"Code is expired");
             return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Expired code");
         }
 
         if (!Identifier.TryParse<ApplicationIdentifier>(clientId, out var parsedIdentifier))
         {
+            scopedLogger.LogDebug($"Could not parse client id {clientId}");
             return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Invalid client id");
         }
 
         if (parsedIdentifier != oauthCode.ClientId)
         {
+            scopedLogger.LogDebug($"Client id does not match id from oauth code");
             return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Provided client id does not match initial client id");
+        }
+
+        if (oauthCode.Redirect != redirectUri)
+        {
+            scopedLogger.LogDebug($"Redirect uri does not match uri from oauth code");
+            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Redirect uri does not match expected uri");
         }
 
         if (oauthCode.CodeChallengeMethod is not CodeChallengeMethods.None)
         {
             if (codeVerifier is null)
             {
+                scopedLogger.LogDebug($"Code challenge exists but not code verifier was provided");
                 return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Missing code verifier");
             }
 
             if (oauthCode.CodeChallengeMethod is CodeChallengeMethods.Plain &&
                 codeVerifier != oauthCode.CodeChallenge)
             {
+                scopedLogger.LogDebug($"Code verifier failed verification");
                 return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Could not verify code verifier");
             }
 
@@ -192,14 +208,10 @@ public sealed class OAuth2Service : IOAuth2Service
                 var verifierString = BitConverter.ToString(hashedBytes).Replace("-", "").ToLower();
                 if (verifierString != oauthCode.CodeChallenge)
                 {
+                    scopedLogger.LogDebug($"Code verifier failed verification");
                     return Result.Failure<OAuthResponse>(errorCode: 401, errorMessage: "Could not verify code verifier");
                 }
             }
-        }
-
-        if (oauthCode.Redirect != redirectUri)
-        {
-            return Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: "Redirect uri does not match expected uri");
         }
 
         var oauthRequest = new OAuthRequest
@@ -214,7 +226,12 @@ public sealed class OAuth2Service : IOAuth2Service
             Nonce = nonce
         };
 
-        //TODO: Delete OAuth code after successful usage
+        if (!await this.oAuthCodeDatabase.ExpireOAuthCode(code, cancellationToken))
+        {
+            scopedLogger.LogError($"Failed to expire OAuth code");
+            return Result.Failure<OAuthResponse>(errorCode: 500, errorMessage: "Could not generate token");
+        }
+
         return await this.HandleRequest(oauthRequest, cancellationToken);
     }
 

@@ -1,6 +1,7 @@
 ﻿using Badge.Models;
 using Badge.Models.Identity;
 using Badge.Options;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.Extensions.Options;
 using System.Core.Extensions;
 using System.Data.SQLite;
@@ -76,6 +77,20 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeOptions>,
         }
     }
 
+    public async Task<bool> ExpireOAuthCode(string code, CancellationToken cancellationToken)
+    {
+        var scopedLogger = this.logger.CreateScopedLogger();
+        try
+        {
+            return await this.ExpireOAuthCodeInternal(code, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            scopedLogger.LogError(ex, "Encountered exception while expiring OAuth code");
+            throw;
+        }
+    }
+
     public async Task DeleteExpiredOAuthCodes(DateTime expiration, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
@@ -88,6 +103,17 @@ public sealed class SQLiteOAuthCodeDatabase : SqliteTableBase<OAuthCodeOptions>,
             scopedLogger.LogError(ex, "Encountered exception while fetching OAuth code");
             throw;
         }
+    }
+
+    private async Task<bool> ExpireOAuthCodeInternal(string code, CancellationToken cancellationToken)
+    {
+        var query = $"UPDATE {this.options.TableName} SET {NotAfterKey} = @notAfter WHERE {CodeKey} = @code";
+        using var command = await this.GetCommand(query, cancellationToken);
+        command.Parameters.AddWithValue("@code", code);
+        command.Parameters.AddWithValue("@notAfter", DateTime.UtcNow.ToString(DateTimeFormat));
+
+        var result = await command.ExecuteNonQuery(cancellationToken);
+        return result == 1;
     }
 
     private async Task<bool> CreateOAuthCodeInternal(OAuthCode code, CancellationToken cancellationToken)
