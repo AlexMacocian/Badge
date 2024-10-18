@@ -9,6 +9,7 @@ using Net.Sdk.Web;
 using System.Core.Extensions;
 using System.Diagnostics.CodeAnalysis;
 using System.Extensions;
+using System.Runtime.CompilerServices;
 
 namespace Badge.Controllers;
 
@@ -55,6 +56,7 @@ public sealed class OAuthController
     }
 
     [GeneratePost("token")]
+    [MethodImpl(MethodImplOptions.NoOptimization | MethodImplOptions.NoInlining | MethodImplOptions.PreserveSig)]
     public async Task<IResult> GetOAuthToken(
         HttpContext httpContext,
         CancellationToken cancellationToken)

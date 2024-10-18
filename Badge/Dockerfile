@@ -13,6 +13,7 @@ RUN dotnet restore
 RUN dotnet clean
 RUN dotnet build -c $BUILD_CONFIGURATION -o /app/build
 RUN dotnet publish Badge.csproj -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=true -v detailed
+RUN dotnet --info >> /app/publish/dotnet.info
 
 FROM mcr.microsoft.com/dotnet/runtime-deps:8.0 AS final
 ENV ASPNETCORE_ENVIRONMENT=Production

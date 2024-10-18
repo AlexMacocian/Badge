@@ -1,8 +1,0 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<linker>
-  <assembly fullname="Badge">
-    <type fullname="Badge.OAuthController">
-      <method name="GetToken" />
-    </type>
-  </assembly>
-</linker>
