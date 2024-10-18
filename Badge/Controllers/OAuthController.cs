@@ -55,7 +55,7 @@ public sealed class OAuthController
     }
 
     [GeneratePost("token")]
-    public async Task<IResult> GetToken(
+    public async Task<IResult> GetOAuthToken(
         HttpContext httpContext,
         CancellationToken cancellationToken)
     {
@@ -71,7 +71,7 @@ public sealed class OAuthController
             RefreshToken = form["refresh_token"].FirstOrDefault(),
             Scope = form["scope"].FirstOrDefault(),
             ClientSecret = form["client_secret"].FirstOrDefault()
-        }, cancellationToken).ConfigureAwait(true);
+        }, cancellationToken);
         return result switch
         {
             Result<OAuthResponse>.Success success => Results.Json(success.Result, SerializationContext.Default),

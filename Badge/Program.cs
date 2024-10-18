@@ -52,16 +52,10 @@ namespace Badge
             app.MapPost("/test", async (HttpContext context, OAuthController route) =>
             {
                 var cancellationToken = context.RequestAborted;
-                return await route.GetToken(context, cancellationToken);
+                return await route.GetOAuthToken(context, cancellationToken);
             });
 
             app.Run();
-        }
-
-        private static async Task<IResult> SomeResult()
-        {
-            await Task.Delay(100);
-            return Results.Ok("Hello world");
         }
     }
 }

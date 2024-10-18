@@ -85,7 +85,7 @@ public static class WebApplicationBuilderExtensions
 
         builder.Services
             .Configure<SQLiteDatabaseOptions>(builder.Configuration.GetRequiredSection("SQLiteDatabase"))
-            .AddScoped(sp =>
+            .AddSingleton(sp =>
             {
                 var options = sp.GetRequiredService<IOptions<SQLiteDatabaseOptions>>();
                 return new SQLiteConnection(options.Value.ConnectionString);
