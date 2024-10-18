@@ -10,19 +10,13 @@ using System.Core.Extensions;
 namespace Badge.Controllers;
 
 [GenerateController("api/applications/{applicationId}/secrets")]
-public sealed class ClientSecretController
+public sealed class ClientSecretController(IApplicationService applicationService) : ApplicationControllerBase(applicationService)
 {
-    private readonly IApplicationService applicationService;
-
-    public ClientSecretController(
-        IApplicationService applicationService)
-    {
-        this.applicationService = applicationService.ThrowIfNull();
-    }
+    private readonly IApplicationService applicationService = applicationService.ThrowIfNull();
 
     [GenerateGet]
     [RouteFilter<LoginAuthenticatedFilter>]
-    public async Task<IResult> GetClientSecrets(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
+    public async Task<IResult> GetClientSecrets(string applicationId, [FromServices] AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
         {
@@ -38,7 +32,7 @@ public sealed class ClientSecretController
 
     [GeneratePost]
     [RouteFilter<LoginAuthenticatedFilter>]
-    public async Task<IResult> CreateClientSecret(string applicationId, AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
+    public async Task<IResult> CreateClientSecret(string applicationId, [FromServices] AuthenticatedUser authenticatedUser, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
         {
@@ -61,7 +55,7 @@ public sealed class ClientSecretController
 
     [GenerateDelete("{clientSecretId}")]
     [RouteFilter<LoginAuthenticatedFilter>]
-    public async Task<IResult> DeleteClientSecret(string applicationId, AuthenticatedUser authenticatedUser, string clientSecretId, CancellationToken cancellationToken)
+    public async Task<IResult> DeleteClientSecret(string applicationId, [FromServices] AuthenticatedUser authenticatedUser, string clientSecretId, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
         {
@@ -76,7 +70,7 @@ public sealed class ClientSecretController
 
     [GeneratePost("{clientSecretId}/detail")]
     [RouteFilter<LoginAuthenticatedFilter>]
-    public async Task<IResult> UpdateClientSecretDetail(string applicationId, AuthenticatedUser authenticatedUser, string clientSecretId, [FromBody]UpdateClientSecretDetailRequest? request, CancellationToken cancellationToken)
+    public async Task<IResult> UpdateClientSecretDetail(string applicationId, [FromServices] AuthenticatedUser authenticatedUser, string clientSecretId, [FromBody]UpdateClientSecretDetailRequest? request, CancellationToken cancellationToken)
     {
         return await this.ExecuteIfApplicationOwned(applicationId, authenticatedUser, async foundApplication =>
         {
@@ -87,20 +81,5 @@ public sealed class ClientSecretController
                 _ => Results.Problem(statusCode: 500)
             };
         }, cancellationToken);
-    }
-
-    private async Task<IResult> ExecuteIfApplicationOwned(string applicationId, AuthenticatedUser authenticatedUser, Func<ApplicationWithRights, Task<IResult>> task, CancellationToken cancellationToken)
-    {
-        var result = await this.applicationService.GetApplicationsByMember(authenticatedUser.User.Id.ToString(), cancellationToken);
-        return result switch
-        {
-            Result<List<ApplicationWithRights>>.Success success => success.Result.FirstOrDefault(app => app.Application.Id.ToString() == applicationId) switch
-            {
-                ApplicationWithRights foundApplication => await task(foundApplication),
-                _ => Results.NotFound()
-            },
-            Result<List<ApplicationWithRights>>.Failure failure => Results.Problem(detail: failure.ErrorMessage, statusCode: failure.ErrorCode),
-            _ => Results.Problem(statusCode: 500)
-        };
     }
 }

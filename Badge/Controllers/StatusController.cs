@@ -20,11 +20,11 @@ public sealed class StatusController
     }
 
     [GenerateGet]
-    public async Task<IResult> HandleRequest()
+    public IResult GetStatus()
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         scopedLogger.LogDebug("Received status request");
-        var status = await this.statusService.GetStatus();
+        var status = this.statusService.GetStatus();
         return Results.Json(status, SerializationContext.Default);
     }
 }

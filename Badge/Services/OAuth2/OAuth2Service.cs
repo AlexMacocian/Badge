@@ -3,14 +3,12 @@ using Badge.Models;
 using Badge.Models.Identity;
 using Badge.Models.JsonWebKeys;
 using Badge.Options;
-using Badge.Services.Applications;
 using Badge.Services.Certificates;
 using Badge.Services.Database.Applications;
 using Badge.Services.Database.OAuth;
 using Badge.Services.JWT;
 using Badge.Services.OAuth2.Handlers;
 using Badge.Services.OAuth2.Models;
-using Badge.Services.Passwords;
 using Badge.Services.Users;
 using Microsoft.Extensions.Options;
 using System.Cache;
@@ -120,19 +118,19 @@ public sealed class OAuth2Service : IOAuth2Service
         return await this.HandleRequest(oAuthRequest, cancellationToken);
     }
 
-    public async Task<Result<OAuthResponse>> GetOAuthToken(OAuthTokenRequest request, CancellationToken cancellationToken)
+    public Task<Result<OAuthResponse>> GetOAuthToken(OAuthTokenRequest request, CancellationToken cancellationToken)
     {
         return request.GrantType switch
         {
-            "authorization_code" => await this.GetOAuthTokenFromCodeInternal(request, cancellationToken),
-            "refresh_token" => await this.GetOAuthTokenFromRefreshTokenInternal(request, cancellationToken),
-            _ => Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: request.GrantType is null ? "Missing grant type" : $"Unsupported grant type {request.GrantType}")
+            "authorization_code" => this.GetOAuthTokenFromCodeInternal(request, cancellationToken),
+            "refresh_token" => this.GetOAuthTokenFromRefreshTokenInternal(request, cancellationToken),
+            _ => Task.FromResult(Result.Failure<OAuthResponse>(errorCode: 400, errorMessage: request.GrantType is null ? "Missing grant type" : $"Unsupported grant type {request.GrantType}"))
         };
     }
 
-    public Task<OAuthDiscoveryDocument> GetOAuthDiscoveryDocument(CancellationToken cancellationToken)
+    public OAuthDiscoveryDocument GetOAuthDiscoveryDocument()
     {
-        return Task.FromResult(new OAuthDiscoveryDocument(
+        return new OAuthDiscoveryDocument(
             issuer: this.options.Issuer ?? throw new InvalidOperationException("Issuer is null"),
             authorizationEndpoint: $"{this.options.Issuer}/oauth/authorize",
             tokenEndpoint: $"{this.options.Issuer}/api/oauth/token",
@@ -144,7 +142,7 @@ public sealed class OAuth2Service : IOAuth2Service
             scopesSupported: this.options.ScopesSupported?.Select(s => s.Name).OfType<string>().ToList() ?? [],
             tokenEndpointAuthMethodsSupported: ["client_secret_post"],
             grantTypesSupported: this.options.GrantTypesSupported ?? [],
-            claimsSupported: ["sub"]));
+            claimsSupported: ["sub"]);
     }
 
     public IEnumerable<OAuthScope> GetOAuthScopes()

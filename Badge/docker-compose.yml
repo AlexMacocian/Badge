@@ -1,0 +1,34 @@
+﻿services:
+  badge-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - badge-db
+    environment:
+      - POSTGRES_CONNECTION_STRING=Host=db;Database=mydb;Username=myuser;Password=mypassword
+    networks:
+      - app-network
+
+  badge-db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - badge-db-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  badge-db-data:

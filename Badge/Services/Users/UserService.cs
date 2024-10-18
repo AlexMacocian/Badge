@@ -60,7 +60,7 @@ public sealed class UserService : IUserService
             return default;
         }
 
-        var jwtToken = await this.jWTService.GetLoginToken(username, this.options.TokenDuration, cancellationToken);
+        var jwtToken = await this.jWTService.GetLoginToken(user.Id.ToString(), user.Username, this.options.TokenDuration, cancellationToken);
         if (jwtToken is null)
         {
             scopedLogger.LogInformation("Could not create jwt token");
@@ -99,7 +99,7 @@ public sealed class UserService : IUserService
             return default;
         }
 
-        var jwtToken = await this.jWTService.GetLoginToken(username, this.options.TokenDuration, cancellationToken);
+        var jwtToken = await this.jWTService.GetLoginToken(user.Id.ToString(), user.Username, this.options.TokenDuration, cancellationToken);
         if (jwtToken is null)
         {
             scopedLogger.LogInformation("Could not create jwt token");
@@ -125,14 +125,14 @@ public sealed class UserService : IUserService
             return default;
         }
 
-        var username = identity.ClaimsPrincipal.Identity?.Name;
-        if (username is null)
+        var userId = identity.JwtSecurityToken.Subject;
+        if (userId is null)
         {
-            scopedLogger.LogError("No username in token");
+            scopedLogger.LogError("No user id in token");
             return default;
         }
 
-        var user = await this.userDatabase.GetUser(username, cancellationToken);
+        var user = await this.userDatabase.GetUser(userId, cancellationToken);
         if (user is null)
         {
             scopedLogger.LogInformation("Could not find user");

@@ -1,7 +1,11 @@
+using Badge.Controllers;
 using Badge.Extensions;
+using Badge.Options;
+using Microsoft.Extensions.Options;
 using Net.Sdk.Web;
 using Net.Sdk.Web.Options;
 using Net.Sdk.Web.Websockets.Extensions;
+using System.Runtime.CompilerServices;
 
 namespace Badge
 {
@@ -18,15 +22,13 @@ namespace Badge
             builder
                 .WithRoutes()
                 .WithAntiforgery()
-                .WithAppSettings()
                 .WithSerializationContext()
                 .WithSQLiteDatabase()
                 .WithUserServices()
                 .WithApplicationServices()
                 .WithHttpContextAccessor()
                 .WithFormattedLogging()
-                .WithCorrelationVector()
-                .ConfigureExtended<CorrelationVectorOptions>()
+                .WithCorrelation()
                 .WithIPExtraction()
                 .WithLoggingEnrichment()
                 .WithHealthChecks()
@@ -37,17 +39,29 @@ namespace Badge
                 .WithStatus();
 
             var app = builder.Build()
+                .UseCorrelationVector()
+                .UseIPExtraction()
+                .UseLoggingEnrichment()
                 .RedirectEmptyPathToIndex()
                 .UseWwwRoot()
                 .UseAntiforgeryMiddleware()
                 .UseUserAuthentication()
-                .UseCorrelationVector()
-                .UseIPExtraction()
-                .UseLoggingEnrichment()
                 .UseHealthChecks()
                 .UseRoutes();
 
+            app.MapPost("/test", async (HttpContext context, OAuthController route) =>
+            {
+                var cancellationToken = context.RequestAborted;
+                return await route.GetToken(context, cancellationToken);
+            });
+
             app.Run();
+        }
+
+        private static async Task<IResult> SomeResult()
+        {
+            await Task.Delay(100);
+            return Results.Ok("Hello world");
         }
     }
 }

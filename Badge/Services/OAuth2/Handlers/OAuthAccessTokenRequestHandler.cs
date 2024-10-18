@@ -69,7 +69,7 @@ public sealed class OAuthAccessTokenRequestHandler : IOAuthRequestHandler
                 return Result.Failure<bool>(401, "Invalid client secret");
             }
 
-            (var token, var tokenType, var expiresIn) = await this.GetAccessToken(validRequest.UserId, validRequest.ClientId, validRequest.Scopes, cancellationToken);
+            (var token, var tokenType, var expiresIn) = await this.GetAccessToken(validRequest.UserId, validRequest.Username, validRequest.ClientId, validRequest.Scopes, cancellationToken);
             oAuthResponseBuilder.AddAccessToken(token, expiresIn, tokenType);
             return Result.Success(true);
         }
@@ -80,9 +80,9 @@ public sealed class OAuthAccessTokenRequestHandler : IOAuthRequestHandler
         }
     }
 
-    private async Task<(string Token, string TokenType, int ExpiresIn)> GetAccessToken(string? userId, string? clientId, string? scopes, CancellationToken cancellationToken)
+    private async Task<(string Token, string TokenType, int ExpiresIn)> GetAccessToken(string? userId, string? username, string? clientId, string? scopes, CancellationToken cancellationToken)
     {
-        var token = await this.jWTService.GetAccessToken(userId.ThrowIfNull(), clientId.ThrowIfNull(), scopes.ThrowIfNull(), this.options.Duration, cancellationToken);
+        var token = await this.jWTService.GetAccessToken(userId.ThrowIfNull(), username.ThrowIfNull(), clientId.ThrowIfNull(), scopes.ThrowIfNull(), this.options.Duration, cancellationToken);
         if (token is null)
         {
             throw new InvalidOperationException("Failed to create access token");

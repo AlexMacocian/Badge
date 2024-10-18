@@ -15,14 +15,14 @@ public sealed class StatusService : IStatusService
         this.options = options.ThrowIfNull().Value;
     }
 
-    public Task<StatusResponse> GetStatus()
+    public StatusResponse GetStatus()
     {
-        return Task.FromResult(new StatusResponse
+        return new StatusResponse
         { 
             Version = this.options.Version,
             Environment = this.options.Environment,
             ApplicationName = this.options.ApplicationName,
             StartedAt = Program.StartTime
-        });
+        };
     }
 }

@@ -32,7 +32,7 @@ public sealed class UsersController
             return Results.Unauthorized();
         }
 
-        var status = await this.statusService.GetStatus();
+        var status = this.statusService.GetStatus();
         httpContext.Response.Cookies.Append("jwt_token", result.Token, new CookieOptions { HttpOnly = true, Secure = status.Environment != "Development", SameSite = SameSiteMode.Strict, Expires = result.ValidTo });
         return Results.Content(result.Token, "text/plain");
     }
@@ -46,19 +46,19 @@ public sealed class UsersController
             return Results.Unauthorized();
         }
 
-        var status = await this.statusService.GetStatus();
+        var status = this.statusService.GetStatus();
         httpContext.Response.Cookies.Append("jwt_token", result.Token, new CookieOptions { HttpOnly = true, Secure = status.Environment != "Development", SameSite = SameSiteMode.Strict, Expires = result.ValidTo });
         return Results.Content(result.Token, "text/plain");
     }
 
     [GenerateGet("me")]
     [RouteFilter<LoginAuthenticatedFilter>]
-    public Task<IResult> Me(AuthenticatedUser authenticatedUser)
+    public IResult Me([FromServices] AuthenticatedUser authenticatedUser)
     {
         return authenticatedUser.User switch
         {
-            User userModel => Task.FromResult(Results.Json(new UserDetails { Username = userModel.Username }, SerializationContext.Default)),
-            _ => Task.FromResult(Results.NotFound("Could not find user"))
+            User userModel => Results.Json(new UserDetails { Username = userModel.Username }, SerializationContext.Default),
+            _ => Results.NotFound("Could not find user")
         };
     }
 }

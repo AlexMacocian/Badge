@@ -7,6 +7,7 @@ using Badge.Services.OAuth2.Models;
 using Microsoft.AspNetCore.Mvc;
 using Net.Sdk.Web;
 using System.Core.Extensions;
+using System.Diagnostics.CodeAnalysis;
 using System.Extensions;
 
 namespace Badge.Controllers;
@@ -26,9 +27,9 @@ public sealed class OAuthController
     }
 
     [GenerateGet(".well-known/openid-configuration")]
-    public async Task<IResult> GetDiscoveryDocument(CancellationToken cancellationToken)
+    public IResult GetDiscoveryDocument()
     {
-        var discoveryDocument = await this.oAuth2Service.GetOAuthDiscoveryDocument(cancellationToken);
+        var discoveryDocument = this.oAuth2Service.GetOAuthDiscoveryDocument();
         return Results.Json(discoveryDocument, SerializationContext.Default);
     }
 
@@ -55,15 +56,10 @@ public sealed class OAuthController
 
     [GeneratePost("token")]
     public async Task<IResult> GetToken(
-        HttpContext context,
+        HttpContext httpContext,
         CancellationToken cancellationToken)
     {
-        var form = await context.Request.ReadFormAsync(cancellationToken);
-        if (form is null)
-        {
-            return Results.Problem(statusCode: 400, detail: "No form payload");
-        }
-
+        var form = await httpContext.Request.ReadFormAsync(cancellationToken);
         var result = await this.oAuth2Service.GetOAuthToken(new OAuthTokenRequest
         {
             ClientId = form["client_id"].FirstOrDefault(),
@@ -75,7 +71,7 @@ public sealed class OAuthController
             RefreshToken = form["refresh_token"].FirstOrDefault(),
             Scope = form["scope"].FirstOrDefault(),
             ClientSecret = form["client_secret"].FirstOrDefault()
-        }, cancellationToken);
+        }, cancellationToken).ConfigureAwait(true);
         return result switch
         {
             Result<OAuthResponse>.Success success => Results.Json(success.Result, SerializationContext.Default),
@@ -85,15 +81,15 @@ public sealed class OAuthController
     }
 
     [GenerateGet("scopes")]
-    public Task<IResult> GetOauthScopes()
+    public IResult GetOauthScopes()
     {
         var scopes = this.oAuth2Service.GetOAuthScopes();
-        return Task.FromResult(Results.Json(scopes.Select(s => new OAuthScopeResponse { Description = s.Description, Name = s.Name }), SerializationContext.Default));
+        return Results.Json(scopes.Select(s => new OAuthScopeResponse { Description = s.Description, Name = s.Name }), SerializationContext.Default);
     }
 
     [GeneratePost("authorize")]
     [RouteFilter<LoginAuthenticatedFilter>]
-    public async Task<IResult> Authorize(AuthenticatedUser authenticatedUser, [FromBody] AuthorizeRequest request, CancellationToken cancellationToken)
+    public async Task<IResult> Authorize([FromServices] AuthenticatedUser authenticatedUser, [FromBody] AuthorizeRequest request, CancellationToken cancellationToken)
     {
         var result = await this.oAuth2Service.GetAuthorization(new OAuthRequest
         {

@@ -4,5 +4,5 @@ namespace Badge.Services.Status;
 
 public interface IStatusService
 {
-    Task<StatusResponse> GetStatus();
+    StatusResponse GetStatus();
 }

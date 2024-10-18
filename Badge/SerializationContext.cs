@@ -33,6 +33,7 @@ namespace Badge;
 [JsonSerializable(typeof(IEnumerable<OAuthScopeResponse>))]
 [JsonSerializable(typeof(OAuthResponse))]
 [JsonSerializable(typeof(UserInfoResponse))]
+[JsonSerializable(typeof(Task<IResult>))]
 public partial class SerializationContext : JsonSerializerContext
 {
 }

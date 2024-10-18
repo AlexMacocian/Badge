@@ -1,6 +1,7 @@
 ﻿using Badge.Converters;
 using Badge.Filters;
 using Badge.Middleware;
+using Badge.Models;
 using Badge.Options;
 using Badge.Services.Applications;
 using Badge.Services.Certificates;
@@ -18,6 +19,7 @@ using Badge.Services.Users;
 using Microsoft.Extensions.Options;
 using Net.Sdk.Web;
 using Net.Sdk.Web.Middleware;
+using Net.Sdk.Web.Options;
 using Serilog;
 using Serilog.Settings.Configuration;
 using System.Core.Extensions;
@@ -27,19 +29,29 @@ namespace Badge.Extensions;
 
 public static class WebApplicationBuilderExtensions
 {
+    public static WebApplicationBuilder WithCorrelation(this WebApplicationBuilder builder)
+    {
+        builder.ThrowIfNull()
+            .WithCorrelationVector()
+            .Services
+            .Configure<CorrelationVectorOptions>(builder.Configuration.GetRequiredSection("CorrelationVector"));
+
+        return builder;
+    }
+
     public static WebApplicationBuilder WithAntiforgery(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull();
-        builder.Services.AddAntiforgery(options => options.SuppressXFrameOptionsHeader = true);
+        builder.Services.AddAntiforgery();
 
         return builder;
     }
 
     public static WebApplicationBuilder WithApplicationServices(this WebApplicationBuilder builder)
     {
-        builder.ThrowIfNull();
-        builder.ConfigureExtended<ApplicationOptions>()
+        builder.ThrowIfNull()
             .Services
+                .Configure<ApplicationOptions>(builder.Configuration.GetRequiredSection("Applications"))
                 .Configure<ApplicationDatabaseOptions>(builder.Configuration.GetRequiredSection($"Applications:ApplicationDatabase"))
                 .Configure<ApplicationMembershipDatabaseOptions>(builder.Configuration.GetRequiredSection($"Applications:MembershipDatabase"))
                 .Configure<ClientSecretDatabaseOptions>(builder.Configuration.GetRequiredSection($"Applications:ClientSecretDatabase"))
@@ -54,10 +66,13 @@ public static class WebApplicationBuilderExtensions
     public static WebApplicationBuilder WithUserServices(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull();
-        builder.ConfigureExtended<UserDatabaseOptions>()
-               .ConfigureExtended<UserServiceOptions>()
-               .Services.AddScoped<AuthenticationMiddleware>()
+        builder.Services
+                        .Configure<UserDatabaseOptions>(builder.Configuration.GetRequiredSection("Users"))
+                        .Configure<UserServiceOptions>(builder.Configuration.GetRequiredSection("Users"))
+                        .AddScoped<AuthenticationMiddleware>()
                         .AddScoped<LoginAuthenticatedFilter>()
+                        .AddScoped<AuthenticatedUserAccessor>()
+                        .AddScoped(sp => sp.GetRequiredService<AuthenticatedUserAccessor>().AuthenticatedUser!)
                         .AddScoped<IUserService, UserService>()
                         .AddScoped<IUserDatabase, SQLiteUserDatabase>();
 
@@ -67,14 +82,14 @@ public static class WebApplicationBuilderExtensions
     public static WebApplicationBuilder WithSQLiteDatabase(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull();
-        builder.ConfigureExtended<SQLiteDatabaseOptions>();
-        
-        // SQLite in ado.net has connection pooling so we can safely pass the connection as transient
-        builder.Services.AddScoped(sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<SQLiteDatabaseOptions>>();
-            return new SQLiteConnection(options.Value.ConnectionString);
-        });
+
+        builder.Services
+            .Configure<SQLiteDatabaseOptions>(builder.Configuration.GetRequiredSection("SQLiteDatabase"))
+            .AddScoped(sp =>
+            {
+                var options = sp.GetRequiredService<IOptions<SQLiteDatabaseOptions>>();
+                return new SQLiteConnection(options.Value.ConnectionString);
+            });
 
         return builder;
     }
@@ -82,18 +97,12 @@ public static class WebApplicationBuilderExtensions
     public static WebApplicationBuilder WithPasswordServices(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull();
-        builder.ConfigureExtended<PasswordServiceOptions>()
+        builder
             .Services
+            .Configure<PasswordServiceOptions>(builder.Configuration.GetRequiredSection("PasswordService"))
             .AddScoped<IPasswordServiceHashingAlgorithm, Rfc2898V1HashingAlgorithm>()
             .AddScoped<IPasswordService, PasswordService>();
 
-        return builder;
-    }
-
-    public static WebApplicationBuilder WithAppSettings(this WebApplicationBuilder builder)
-    {
-        builder.ThrowIfNull();
-        builder.Configuration.AddJsonFile("appsettings.json", false);
         return builder;
     }
 
@@ -108,9 +117,10 @@ public static class WebApplicationBuilderExtensions
     public static WebApplicationBuilder WithCertificateServices(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull()
-            .ConfigureExtended<CertificateServiceOptions>()
-            .ConfigureExtended<CertificateDatabaseOptions>()
-            .Services.AddScoped<ICertificateDatabase, SQLiteCertificateDatabase>()
+            .Services
+                     .Configure<CertificateServiceOptions>(builder.Configuration.GetRequiredSection("Certificates"))
+                     .Configure<CertificateDatabaseOptions>(builder.Configuration.GetRequiredSection("Certificates"))
+                     .AddScoped<ICertificateDatabase, SQLiteCertificateDatabase>()
                      .AddScoped<ICertificateService, CertificateService>();
         return builder;
     }
@@ -129,8 +139,9 @@ public static class WebApplicationBuilderExtensions
     public static WebApplicationBuilder WithStatus(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull()
-            .ConfigureExtended<StatusOptions>()
-            .Services.AddScoped<IStatusService, StatusService>();
+            .Services
+            .Configure<StatusOptions>(builder.Configuration.GetRequiredSection("Status"))
+            .AddScoped<IStatusService, StatusService>();
 
         return builder;
     }
@@ -138,12 +149,12 @@ public static class WebApplicationBuilderExtensions
     public static WebApplicationBuilder WithAuthorize(this WebApplicationBuilder builder)
     {
         builder.ThrowIfNull()
-            .ConfigureExtended<OAuthServiceOptions>()
-            .ConfigureExtended<OAuthCodeOptions>()
-            .ConfigureExtended<OAuthRefreshTokenOptions>()
-            .ConfigureExtended<OAuthAccessTokenOptions>()
-            .ConfigureExtended<OAuthOpenIdTokenOptions>()
             .Services
+                .Configure<OAuthServiceOptions>(builder.Configuration.GetRequiredSection("OAuth"))
+                .Configure<OAuthCodeOptions>(builder.Configuration.GetRequiredSection("OAuth:Code"))
+                .Configure<OAuthRefreshTokenOptions>(builder.Configuration.GetRequiredSection("OAuth:RefreshToken"))
+                .Configure<OAuthAccessTokenOptions>(builder.Configuration.GetRequiredSection("OAuth:AccessToken"))
+                .Configure<OAuthOpenIdTokenOptions>(builder.Configuration.GetRequiredSection("OAuth:OpenIdToken"))
                 .AddScoped<IOAuthCodeDatabase, SQLiteOAuthCodeDatabase>()
                 .AddScoped<IOAuthRefreshTokenDatabase, SQLiteOAuthRefreshTokenDatabase>()
                 .AddScoped<IOAuth2Service, OAuth2Service>()

@@ -35,14 +35,15 @@ public sealed class JWTService : IJWTService
         this.logger = logger.ThrowIfNull();
     }
 
-    public async Task<JwtToken?> GetLoginToken(string subjectId, TimeSpan duration, CancellationToken cancellationToken)
+    public async Task<JwtToken?> GetLoginToken(string userId, string username, TimeSpan duration, CancellationToken cancellationToken)
     {
         var scopedLogger = this.logger.CreateScopedLogger();
         try
         {
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, subjectId),
+                new Claim(JwtRegisteredClaimNames.Sub, userId),
+                new Claim(JwtRegisteredClaimNames.PreferredUsername, username),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(JwtExtendedClaimNames.TokenType, OAuthTokenTypes.LoginToken),
                 new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
@@ -60,6 +61,7 @@ public sealed class JWTService : IJWTService
     public async Task<JwtToken?> GetAccessToken(
         string subjectId,
         string clientId,
+        string username,
         string scope,
         TimeSpan duration,
         CancellationToken cancellationToken)
@@ -71,6 +73,7 @@ public sealed class JWTService : IJWTService
             {
                 new Claim(JwtRegisteredClaimNames.Sub, subjectId),
                 new Claim(JwtRegisteredClaimNames.Aud, clientId),
+                new Claim(JwtRegisteredClaimNames.PreferredUsername, username),
                 new Claim(JwtRegisteredClaimNames.Iss, this.jwtServiceOptions.Issuer),
                 new Claim(JwtExtendedClaimNames.Scope, scope),
                 new Claim(JwtExtendedClaimNames.TokenType, OAuthTokenTypes.AccessToken),
@@ -88,7 +91,7 @@ public sealed class JWTService : IJWTService
     }
 
     public async Task<JwtToken?> GetRefreshToken(
-        string subjectId,
+        string userId,
         string clientId,
         string scope,
         string redirectUri,
@@ -101,7 +104,7 @@ public sealed class JWTService : IJWTService
         {
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, subjectId),
+                new Claim(JwtRegisteredClaimNames.Sub, userId),
                 new Claim(JwtRegisteredClaimNames.Aud, clientId),
                 new Claim(JwtRegisteredClaimNames.Iss, this.jwtServiceOptions.Issuer),
                 new Claim(JwtExtendedClaimNames.AccessScope, scope),
@@ -123,7 +126,7 @@ public sealed class JWTService : IJWTService
     }
 
     public async Task<JwtToken?> GetOpenIDToken(
-        string subjectId,
+        string userId,
         string clientId,
         string username,
         string scope,
@@ -169,7 +172,7 @@ public sealed class JWTService : IJWTService
             var tokenHash = Base64UrlEncode(leftmostBytes);
             var claims = new[]
             {
-                new Claim(JwtRegisteredClaimNames.Sub, subjectId),
+                new Claim(JwtRegisteredClaimNames.Sub, userId),
                 new Claim(JwtRegisteredClaimNames.Aud, clientId),
                 new Claim(JwtRegisteredClaimNames.PreferredUsername, username),
                 new Claim(JwtRegisteredClaimNames.Iss, this.jwtServiceOptions.Issuer),
@@ -244,6 +247,11 @@ public sealed class JWTService : IJWTService
     private async Task<ValidatedIdentity?> ValidateJwtInternal(string token, CancellationToken _)
     {
         var keys = await this.securityKeysCache.GetValue();
+        if (keys.Count == 0)
+        {
+            return default;
+        }
+
         var tokenHandler = new JwtSecurityTokenHandler();
         var tokenValidationParameters = new TokenValidationParameters
         {
